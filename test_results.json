@@ -1,0 +1,79 @@
+{
+  "total_tests": 7,
+  "passed": 1,
+  "failed": 6,
+  "success_rate": 14.285714285714285,
+  "healthy_services": [],
+  "kafka_healthy": true,
+  "test_results": [
+    {
+      "test": "order_health",
+      "success": false,
+      "message": "order service returned 400",
+      "timestamp": "2025-08-02T13:08:26.592220",
+      "data": {}
+    },
+    {
+      "test": "payment_health",
+      "success": false,
+      "message": "payment service returned 404",
+      "timestamp": "2025-08-02T13:08:28.635159",
+      "data": {}
+    },
+    {
+      "test": "inventory_health",
+      "success": false,
+      "message": "inventory service is not accessible: HTTPConnectionPool(host='localhost', port=5003): Max retries exceeded with url: /health (Caused by NewConnectionError('<urllib3.connection.HTTPConnection object at 0x000001CE2C2C65A0>: Failed to establish a new connection: [WinError 10061] No connection could be made because the target machine actively refused it'))",
+      "timestamp": "2025-08-02T13:08:32.718290",
+      "data": {}
+    },
+    {
+      "test": "notification_health",
+      "success": false,
+      "message": "notification service is not accessible: HTTPConnectionPool(host='localhost', port=5004): Max retries exceeded with url: /health (Caused by NewConnectionError('<urllib3.connection.HTTPConnection object at 0x000001CE2C2C6C60>: Failed to establish a new connection: [WinError 10061] No connection could be made because the target machine actively refused it'))",
+      "timestamp": "2025-08-02T13:08:36.806003",
+      "data": {}
+    },
+    {
+      "test": "monitoring_health",
+      "success": false,
+      "message": "monitoring service is not accessible: HTTPConnectionPool(host='localhost', port=5005): Max retries exceeded with url: /health (Caused by NewConnectionError('<urllib3.connection.HTTPConnection object at 0x000001CE2C2C62D0>: Failed to establish a new connection: [WinError 10061] No connection could be made because the target machine actively refused it'))",
+      "timestamp": "2025-08-02T13:08:40.901916",
+      "data": {}
+    },
+    {
+      "test": "kafka_connectivity",
+      "success": true,
+      "message": "Kafka is accessible with 17 topics",
+      "timestamp": "2025-08-02T13:08:42.950318",
+      "data": {
+        "topics": [
+          "orders.created",
+          "orders.validated",
+          "orders.completed",
+          "orders.failed",
+          "payments.requested",
+          "payments.completed",
+          "payments.failed",
+          "inventory.reserved",
+          "inventory.confirmed",
+          "inventory.released",
+          "notifications.email",
+          "notifications.sms",
+          "dlq.orders",
+          "dlq.payments",
+          "dlq.inventory",
+          "dlq.notifications",
+          "dead.letter.queue"
+        ]
+      }
+    },
+    {
+      "test": "kafka_produce",
+      "success": false,
+      "message": "Failed to produce: 404",
+      "timestamp": "2025-08-02T13:08:45.029078",
+      "data": {}
+    }
+  ]
+}
