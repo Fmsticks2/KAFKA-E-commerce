@@ -1,0 +1,11 @@
+[phases.setup]
+nixPkgs = ['python313', 'gcc', 'pkg-config']
+
+[phases.install]
+cmds = [
+    'pip install --upgrade pip',
+    'pip install -r requirements-railway.txt'
+]
+
+[start]
+cmd = 'python start-railway.py'

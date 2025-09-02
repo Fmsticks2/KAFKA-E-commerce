@@ -1,0 +1,41 @@
+[build]
+# Use the Railway-specific requirements file
+builder = "nixpacks"
+
+[deploy]
+# Health check configuration
+healthcheckPath = "/health"
+healthcheckTimeout = 300
+
+# Resource limits
+replicas = 1
+restartPolicyType = "ON_FAILURE"
+
+# Environment
+[deploy.env]
+PORT = "$PORT"
+ENVIRONMENT = "production"
+DEBUG = "false"
+HOST = "0.0.0.0"
+
+# Use embedded Kafka instead of external Kafka
+KAFKA_BOOTSTRAP_SERVERS = "localhost:9092"
+EMBEDDED_KAFKA_PORT = "9092"
+USE_EMBEDDED_KAFKA = "true"
+
+# Service ports
+ORDER_SERVICE_PORT = "5001"
+PAYMENT_SERVICE_PORT = "5002"
+INVENTORY_SERVICE_PORT = "5003"
+NOTIFICATION_SERVICE_PORT = "5004"
+ORCHESTRATOR_SERVICE_PORT = "5005"
+MONITORING_SERVICE_PORT = "5006"
+
+# Logging
+LOG_LEVEL = "INFO"
+
+# Features
+METRICS_ENABLED = "true"
+RATE_LIMIT_ENABLED = "true"
+SSL_ENABLED = "false"
+WORKERS = "2"
