@@ -230,9 +230,10 @@ group.initial.rebalance.delay.ms=0
     def is_running(self):
         """Check if Kafka is running"""
         try:
-            from kafka import KafkaProducer
-            producer = KafkaProducer(bootstrap_servers=['localhost:9092'])
-            producer.close()
+            from confluent_kafka import Producer
+            producer = Producer({'bootstrap.servers': 'localhost:9092'})
+            # Test connection by getting metadata
+            metadata = producer.list_topics(timeout=5)
             return True
         except Exception:
             return False

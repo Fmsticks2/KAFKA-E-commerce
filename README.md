@@ -466,7 +466,7 @@ ORDER_SERVICE_PORT=5021
 #### Kafka Connection Issues
 ```bash
 # Test Kafka connectivity
-python -c "from kafka import KafkaProducer; KafkaProducer(bootstrap_servers='localhost:9092')"
+python -c "from confluent_kafka import Producer; Producer({'bootstrap.servers': 'localhost:9092'})"
 
 # Check Kafka topics
 docker exec kafka kafka-topics --list --bootstrap-server localhost:9092

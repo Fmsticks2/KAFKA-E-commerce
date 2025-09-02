@@ -12,22 +12,8 @@ if Config.USE_EMBEDDED_KAFKA:
     from embedded_kafka_adapter import patch_kafka_imports
     patch_kafka_imports()
 
-from kafka import KafkaProducer, KafkaConsumer, KafkaAdminClient
-try:
-    from kafka.admin import ConfigResource, ConfigResourceType, NewTopic
-except ImportError:
-    # For embedded Kafka, NewTopic is just a string
-    NewTopic = str
-    ConfigResource = str
-    ConfigResourceType = str
-try:
-    from kafka.errors import KafkaError, KafkaTimeoutError
-except ImportError:
-    # Define basic exceptions for embedded Kafka
-    class KafkaError(Exception):
-        pass
-    class KafkaTimeoutError(KafkaError):
-        pass
+from confluent_kafka import Producer, Consumer, KafkaError, KafkaException
+from confluent_kafka.admin import AdminClient, NewTopic
 
 # Setup structured logging
 logger = structlog.get_logger(__name__)
@@ -42,16 +28,16 @@ class KafkaConnectionManager:
         self.max_connection_retries = 5
     
     @retry(stop_max_attempt_number=5, wait_exponential_multiplier=1000)
-    def get_producer(self) -> KafkaProducer:
+    def get_producer(self) -> Producer:
         """Get or create Kafka producer"""
         if self.producer is None:
             try:
-                producer_config = Config.get_producer_config()
-                # Override serializers for JSON handling
-                producer_config['value_serializer'] = lambda v: json.dumps(v).encode('utf-8')
-                producer_config['key_serializer'] = lambda k: str(k).encode('utf-8')
+                producer_config = {
+                    'bootstrap.servers': Config.KAFKA_BOOTSTRAP_SERVERS,
+                    'client.id': 'ecommerce-producer'
+                }
                 
-                self.producer = KafkaProducer(**producer_config)
+                self.producer = Producer(producer_config)
                 logger.info("Kafka producer created successfully")
             except Exception as e:
                 logger.error("Failed to create Kafka producer", error=str(e))
@@ -59,18 +45,18 @@ class KafkaConnectionManager:
         return self.producer
     
     @retry(stop_max_attempt_number=5, wait_exponential_multiplier=1000)
-    def get_consumer(self, topics: List[str], group_id: str) -> KafkaConsumer:
+    def get_consumer(self, topics: List[str], group_id: str) -> Consumer:
         """Create Kafka consumer with retry logic"""
         try:
-            consumer_config = Config.get_consumer_config(group_id)
-            # Override deserializers for JSON handling
-            consumer_config['value_deserializer'] = lambda m: json.loads(m.decode('utf-8')) if m else None
-            consumer_config['key_deserializer'] = lambda m: m.decode('utf-8') if m else None
+            consumer_config = {
+                'bootstrap.servers': Config.KAFKA_BOOTSTRAP_SERVERS,
+                'group.id': group_id,
+                'auto.offset.reset': 'earliest',
+                'enable.auto.commit': True
+            }
             
-            consumer = KafkaConsumer(
-                *topics,
-                **consumer_config
-            )
+            consumer = Consumer(consumer_config)
+            consumer.subscribe(topics)
             logger.info("Kafka consumer created successfully", topics=topics, group_id=group_id)
             return consumer
         except Exception as e:
@@ -78,14 +64,14 @@ class KafkaConnectionManager:
             raise
     
     @retry(stop_max_attempt_number=3, wait_exponential_multiplier=1000)
-    def get_admin_client(self) -> KafkaAdminClient:
+    def get_admin_client(self) -> AdminClient:
         """Get or create Kafka admin client"""
         if self.admin_client is None:
             try:
-                self.admin_client = KafkaAdminClient(
-                    bootstrap_servers=Config.KAFKA_BOOTSTRAP_SERVERS,
-                    client_id='admin_client'
-                )
+                admin_config = {
+                    'bootstrap.servers': Config.KAFKA_BOOTSTRAP_SERVERS
+                }
+                self.admin_client = AdminClient(admin_config)
                 logger.info("Kafka admin client created successfully")
             except Exception as e:
                 logger.error("Failed to create Kafka admin client", error=str(e))
@@ -95,10 +81,9 @@ class KafkaConnectionManager:
     def close_connections(self):
         """Close all Kafka connections"""
         if self.producer:
-            self.producer.close()
+            self.producer.flush()
             self.producer = None
         if self.admin_client:
-            self.admin_client.close()
             self.admin_client = None
         logger.info("Kafka connections closed")
 
@@ -122,27 +107,31 @@ class MessageProducer:
             }
             
             producer = self.connection_manager.get_producer()
-            future = producer.send(topic, value=enriched_message, key=key)
             
-            # Wait for message to be sent
-            record_metadata = future.get(timeout=10)
+            # Serialize message to JSON
+            message_value = json.dumps(enriched_message).encode('utf-8')
+            message_key = key.encode('utf-8') if key else None
+            
+            # Send message
+            producer.produce(
+                topic=topic,
+                value=message_value,
+                key=message_key,
+                callback=self._delivery_callback
+            )
+            
+            # Wait for message to be delivered
+            producer.flush(timeout=10)
             
             self.message_count += 1
             logger.info(
                 "Message sent successfully",
                 topic=topic,
-                partition=record_metadata.partition,
-                offset=record_metadata.offset,
                 correlation_id=enriched_message['correlation_id']
             )
             return True
             
-        except KafkaTimeoutError:
-            self.error_count += 1
-            logger.error("Timeout sending message to Kafka", topic=topic)
-            self._send_to_dlq(topic, message, "timeout_error")
-            return False
-        except KafkaError as e:
+        except KafkaException as e:
             self.error_count += 1
             logger.error("Kafka error sending message", topic=topic, error=str(e))
             self._send_to_dlq(topic, message, "kafka_error")
@@ -152,6 +141,13 @@ class MessageProducer:
             logger.error("Unexpected error sending message", topic=topic, error=str(e))
             self._send_to_dlq(topic, message, "unexpected_error")
             return False
+    
+    def _delivery_callback(self, err, msg):
+        """Callback for message delivery confirmation"""
+        if err:
+            logger.error("Message delivery failed", error=str(err))
+        else:
+            logger.debug("Message delivered", topic=msg.topic(), partition=msg.partition(), offset=msg.offset())
     
     def _send_to_dlq(self, original_topic: str, message: Dict[str, Any], error_type: str):
         """Send failed message to Dead Letter Queue"""
@@ -164,7 +160,9 @@ class MessageProducer:
             }
             
             producer = self.connection_manager.get_producer()
-            producer.send(Config.TOPICS['DLQ'], value=dlq_message)
+            dlq_value = json.dumps(dlq_message).encode('utf-8')
+            producer.produce(topic=Config.TOPICS['DLQ'], value=dlq_value)
+            producer.flush()
             logger.info("Message sent to DLQ", original_topic=original_topic, error_type=error_type)
         except Exception as e:
             logger.error("Failed to send message to DLQ", error=str(e))
@@ -206,11 +204,19 @@ class MessageConsumer:
             
             while self.running:
                 try:
-                    message_batch = self.consumer.poll(timeout_ms=1000)
+                    msg = self.consumer.poll(timeout=1.0)
                     
-                    for topic_partition, messages in message_batch.items():
-                        for message in messages:
-                            self._process_message(message)
+                    if msg is None:
+                        continue
+                    
+                    if msg.error():
+                        if msg.error().code() == KafkaError._PARTITION_EOF:
+                            continue
+                        else:
+                            logger.error("Consumer error", error=str(msg.error()))
+                            continue
+                    
+                    self._process_message(msg)
                             
                 except Exception as e:
                     logger.error("Error during message consumption", error=str(e))
@@ -220,11 +226,12 @@ class MessageConsumer:
             logger.error("Failed to start message consumption", error=str(e))
             raise
     
-    def _process_message(self, message):
+    def _process_message(self, msg):
         """Process individual message with error handling and deduplication"""
         try:
-            message_data = message.value
-            message_key = message.key
+            # Deserialize message
+            message_data = json.loads(msg.value().decode('utf-8'))
+            message_key = msg.key().decode('utf-8') if msg.key() else None
             
             # Extract correlation ID for deduplication
             correlation_id = message_data.get('correlation_id')
@@ -241,18 +248,18 @@ class MessageConsumer:
                     self.processed_messages.add(correlation_id)
                 logger.info(
                     "Message processed successfully",
-                    topic=message.topic,
-                    partition=message.partition,
-                    offset=message.offset,
+                    topic=msg.topic(),
+                    partition=msg.partition(),
+                    offset=msg.offset(),
                     correlation_id=correlation_id
                 )
             else:
                 self.error_count += 1
                 logger.error(
                     "Message processing failed",
-                    topic=message.topic,
-                    partition=message.partition,
-                    offset=message.offset
+                    topic=msg.topic(),
+                    partition=msg.partition(),
+                    offset=msg.offset()
                 )
                 
         except Exception as e:
@@ -280,42 +287,31 @@ def create_topics_if_not_exist(connection_manager: KafkaConnectionManager):
         admin_client = connection_manager.get_admin_client()
         
         # Get existing topics
-        existing_topics_result = admin_client.list_topics()
-        if hasattr(existing_topics_result, 'topics'):
-            existing_topics = existing_topics_result.topics
-        else:
-            existing_topics = existing_topics_result
+        metadata = admin_client.list_topics(timeout=10)
+        existing_topics = set(metadata.topics.keys())
         
         # Define topics to create
         topics_to_create = []
         for topic_name in Config.TOPICS.values():
             if topic_name not in existing_topics:
-                if Config.USE_EMBEDDED_KAFKA:
-                    # For embedded Kafka, just use the topic name
-                    topics_to_create.append(topic_name)
-                else:
-                    topic = NewTopic(
-                        name=topic_name,
-                        num_partitions=3,
-                        replication_factor=1
-                    )
-                    topics_to_create.append(topic)
+                topic = NewTopic(
+                    topic=topic_name,
+                    num_partitions=3,
+                    replication_factor=1
+                )
+                topics_to_create.append(topic)
         
         if topics_to_create:
             # Create topics
-            result = admin_client.create_topics(topics_to_create, validate_only=False)
+            fs = admin_client.create_topics(topics_to_create)
             
-            if Config.USE_EMBEDDED_KAFKA:
-                # For embedded Kafka, topics are created immediately
-                for topic in topics_to_create:
+            # Wait for topics to be created
+            for topic, f in fs.items():
+                try:
+                    f.result()  # The result itself is None
                     logger.info("Topic created successfully", topic=topic)
-            else:
-                # Wait for topics to be created
-                for topic in topics_to_create:
-                    try:
-                        logger.info("Topic created successfully", topic=topic.name)
-                    except Exception as e:
-                        logger.error("Failed to create topic", topic=topic.name, error=str(e))
+                except Exception as e:
+                    logger.error("Failed to create topic", topic=topic, error=str(e))
         else:
             logger.info("All topics already exist")
             
@@ -327,8 +323,8 @@ def health_check_kafka(connection_manager: KafkaConnectionManager) -> bool:
     """Check Kafka cluster health"""
     try:
         admin_client = connection_manager.get_admin_client()
-        topics = admin_client.list_topics()
-        logger.info("Kafka health check passed", topic_count=len(topics))
+        metadata = admin_client.list_topics(timeout=10)
+        logger.info("Kafka health check passed", topic_count=len(metadata.topics))
         return True
     except Exception as e:
         logger.error("Kafka health check failed", error=str(e))

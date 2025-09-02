@@ -1,4 +1,4 @@
-kafka-python==2.0.2
+confluent-kafka==2.3.0
 flask==2.3.3
 structlog==23.1.0
 python-dotenv==1.0.0

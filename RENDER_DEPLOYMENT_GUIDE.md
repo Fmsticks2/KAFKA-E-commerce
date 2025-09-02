@@ -184,10 +184,71 @@ KAFKA_SASL_USERNAME=<your-api-key>
 KAFKA_SASL_PASSWORD=<your-api-secret>
 KAFKA_SSL_CA_LOCATION=/etc/ssl/certs/ca-certificates.crt
 
+# SSL Certificate Configuration (Usually NOT needed for Confluent Cloud)
+# These are typically empty for Confluent Cloud as it uses SASL_SSL with API keys
+KAFKA_SSL_CERT_LOCATION=
+KAFKA_SSL_KEY_LOCATION=
+KAFKA_SSL_KEY_PASSWORD=
+
 # Optional: Schema Registry (if using Avro)
 SCHEMA_REGISTRY_URL=https://psrc-xxxxx.us-east-2.aws.confluent.cloud
 SCHEMA_REGISTRY_BASIC_AUTH_USER_INFO=<sr-api-key>:<sr-api-secret>
 ```
+
+### SSL Certificate Configuration Explained
+
+For **Confluent Cloud**, you typically **DO NOT** need to set these SSL certificate variables:
+- `KAFKA_SSL_CERT_LOCATION`
+- `KAFKA_SSL_KEY_LOCATION` 
+- `KAFKA_SSL_KEY_PASSWORD`
+
+Confluent Cloud uses **SASL_SSL** authentication with API keys, which is simpler and more secure.
+
+#### When You Might Need SSL Certificates:
+
+1. **Self-hosted Kafka with mTLS (mutual TLS)**
+2. **Enterprise Kafka clusters requiring client certificates**
+3. **Custom security requirements**
+
+#### How to Obtain SSL Certificates (if needed):
+
+**Option 1: Self-Signed Certificates (Development)**
+```bash
+# Generate private key
+openssl genrsa -out kafka-client.key 2048
+
+# Generate certificate signing request
+openssl req -new -key kafka-client.key -out kafka-client.csr
+
+# Generate self-signed certificate
+openssl x509 -req -days 365 -in kafka-client.csr -signkey kafka-client.key -out kafka-client.crt
+```
+
+**Option 2: CA-Signed Certificates (Production)**
+1. Generate a private key and CSR (as above)
+2. Submit CSR to your Certificate Authority
+3. Receive signed certificate from CA
+4. Configure paths in environment variables
+
+**Option 3: Enterprise/Organization Certificates**
+- Contact your IT/Security team
+- Request Kafka client certificates
+- Follow organization's certificate management process
+
+#### Configuration Example (if using SSL certificates):
+```bash
+# SSL Certificate paths (absolute paths required)
+KAFKA_SSL_CERT_LOCATION=/path/to/kafka-client.crt
+KAFKA_SSL_KEY_LOCATION=/path/to/kafka-client.key
+KAFKA_SSL_KEY_PASSWORD=your_key_password_if_encrypted
+
+# Security protocol for mTLS
+KAFKA_SECURITY_PROTOCOL=SSL
+# OR combined with SASL
+KAFKA_SECURITY_PROTOCOL=SASL_SSL
+```
+
+**For this project with Confluent Cloud, leave these variables empty as shown in the configuration above.**
 
 ### Step 6: Update Application Configuration
 
@@ -199,17 +260,17 @@ Test the connection before deploying:
 
 ```python
 # test_confluent_connection.py
-from kafka import KafkaProducer, KafkaConsumer
+from confluent_kafka import Producer, Consumer
 import os
 
 # Test producer
-producer = KafkaProducer(
-    bootstrap_servers=os.getenv('KAFKA_BOOTSTRAP_SERVERS'),
-    security_protocol='SASL_SSL',
-    sasl_mechanism='PLAIN',
-    sasl_plain_username=os.getenv('KAFKA_SASL_USERNAME'),
-    sasl_plain_password=os.getenv('KAFKA_SASL_PASSWORD')
-)
+producer = Producer({
+    'bootstrap.servers': os.getenv('KAFKA_BOOTSTRAP_SERVERS'),
+    'security.protocol': 'SASL_SSL',
+    'sasl.mechanism': 'PLAIN',
+    'sasl.username': os.getenv('KAFKA_SASL_USERNAME'),
+    'sasl.password': os.getenv('KAFKA_SASL_PASSWORD')
+})
 
 # Send test message
 producer.send('orders.created', b'test message')

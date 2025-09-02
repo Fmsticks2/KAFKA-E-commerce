@@ -319,19 +319,19 @@ def patch_kafka_imports():
     """Replace kafka-python classes with embedded Kafka adapters"""
     import sys
     
-    # Create mock kafka module
-    class MockKafkaModule:
-        KafkaProducer = EmbeddedKafkaProducer
-        KafkaConsumer = EmbeddedKafkaConsumer
-        KafkaAdminClient = EmbeddedKafkaAdminClient
+    # Create mock confluent_kafka module
+    class MockConfluentKafkaModule:
+        Producer = EmbeddedKafkaProducer
+        Consumer = EmbeddedKafkaConsumer
         TopicPartition = MockTopicPartition
     
-    class MockKafkaAdminModule:
+    class MockConfluentKafkaAdminModule:
+        AdminClient = EmbeddedKafkaAdminClient
         NewTopic = str  # Simple string for topic names
     
     # Replace imports
-    sys.modules['kafka'] = MockKafkaModule()
-    sys.modules['kafka.admin'] = MockKafkaAdminModule()
+    sys.modules['confluent_kafka'] = MockConfluentKafkaModule()
+    sys.modules['confluent_kafka.admin'] = MockConfluentKafkaAdminModule()
     
     logger.info("Kafka imports patched for embedded Kafka")
 

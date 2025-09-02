@@ -111,38 +111,34 @@ class Config:
     
     @classmethod
     def get_kafka_config(cls):
-        """Get Kafka configuration dictionary"""
+        """Get Kafka configuration dictionary for confluent-kafka"""
         return {
-            'bootstrap_servers': cls.KAFKA_BOOTSTRAP_SERVERS,
-            'auto_offset_reset': cls.KAFKA_AUTO_OFFSET_RESET,
-            'enable_auto_commit': cls.KAFKA_ENABLE_AUTO_COMMIT,
-            'auto_commit_interval_ms': cls.KAFKA_AUTO_COMMIT_INTERVAL_MS,
-            'session_timeout_ms': cls.KAFKA_SESSION_TIMEOUT_MS,
-            'heartbeat_interval_ms': cls.KAFKA_HEARTBEAT_INTERVAL_MS,
-            'max_poll_records': cls.KAFKA_MAX_POLL_RECORDS,
-            'request_timeout_ms': cls.KAFKA_REQUEST_TIMEOUT_MS
+            'bootstrap.servers': cls.KAFKA_BOOTSTRAP_SERVERS,
+            'auto.offset.reset': cls.KAFKA_AUTO_OFFSET_RESET,
+            'enable.auto.commit': cls.KAFKA_ENABLE_AUTO_COMMIT,
+            'auto.commit.interval.ms': cls.KAFKA_AUTO_COMMIT_INTERVAL_MS,
+            'session.timeout.ms': cls.KAFKA_SESSION_TIMEOUT_MS,
+            'heartbeat.interval.ms': cls.KAFKA_HEARTBEAT_INTERVAL_MS,
+            'max.poll.records': cls.KAFKA_MAX_POLL_RECORDS,
+            'request.timeout.ms': cls.KAFKA_REQUEST_TIMEOUT_MS
         }
     
     @classmethod
     def get_producer_config(cls):
-        """Get Kafka producer configuration"""
+        """Get Kafka producer configuration for confluent-kafka"""
         return {
-            'bootstrap_servers': cls.KAFKA_BOOTSTRAP_SERVERS,
-            'value_serializer': lambda v: v.encode('utf-8') if isinstance(v, str) else v,
-            'key_serializer': lambda k: k.encode('utf-8') if isinstance(k, str) else k,
+            'bootstrap.servers': cls.KAFKA_BOOTSTRAP_SERVERS,
             'acks': 'all',
             'retries': cls.MAX_RETRIES,
-            'retry_backoff_ms': cls.RETRY_BACKOFF_MS,
-            'request_timeout_ms': cls.KAFKA_REQUEST_TIMEOUT_MS
+            'retry.backoff.ms': cls.RETRY_BACKOFF_MS,
+            'request.timeout.ms': cls.KAFKA_REQUEST_TIMEOUT_MS
         }
     
     @classmethod
     def get_consumer_config(cls, group_id):
-        """Get Kafka consumer configuration"""
+        """Get Kafka consumer configuration for confluent-kafka"""
         config = cls.get_kafka_config()
         config.update({
-            'group_id': group_id,
-            'value_deserializer': lambda m: m.decode('utf-8') if m else None,
-            'key_deserializer': lambda m: m.decode('utf-8') if m else None
+            'group.id': group_id
         })
         return config

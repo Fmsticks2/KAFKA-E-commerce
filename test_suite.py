@@ -13,11 +13,8 @@ if Config.USE_EMBEDDED_KAFKA:
     from embedded_kafka_adapter import patch_kafka_imports
     patch_kafka_imports()
 
-from kafka import KafkaProducer, KafkaConsumer, KafkaAdminClient
-try:
-    from kafka.admin import NewTopic
-except ImportError:
-    NewTopic = str
+from confluent_kafka import Producer, Consumer
+from confluent_kafka.admin import AdminClient, NewTopic
 from kafka_utils import KafkaConnectionManager, MessageProducer, MessageConsumer
 
 class TestKafkaEcommerceSystem:
