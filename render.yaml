@@ -5,7 +5,11 @@ services:
     name: kafka-ecommerce-backend
     env: python
     plan: starter
-    buildCommand: pip install -r requirements.txt
+    runtime: python-3.11
+    buildCommand: |
+      apt-get update && apt-get install -y build-essential librdkafka-dev
+      pip install --upgrade pip
+      pip install -r requirements.txt
     startCommand: python main.py
     envVars:
       - key: ENVIRONMENT
