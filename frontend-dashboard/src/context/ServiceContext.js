@@ -12,14 +12,38 @@ export const useServices = () => {
   return context;
 };
 
-// Service configuration based on backend ports
+// Service configuration with environment variable support
 const SERVICES = {
-  order: { port: 5011, name: 'Order Service' },
-  payment: { port: 6002, name: 'Payment Service' },
-  inventory: { port: 5003, name: 'Inventory Service' },
-  notification: { port: 5004, name: 'Notification Service' },
-  orchestrator: { port: 5005, name: 'Orchestrator Service' },
-  monitoring: { port: 5005, name: 'Monitoring Service' }
+  order: { 
+    port: 5011, 
+    name: 'Order Service',
+    url: process.env.REACT_APP_ORDER_SERVICE_URL || 'http://localhost:5011'
+  },
+  payment: { 
+    port: 6002, 
+    name: 'Payment Service',
+    url: process.env.REACT_APP_PAYMENT_SERVICE_URL || 'http://localhost:6002'
+  },
+  inventory: { 
+    port: 5003, 
+    name: 'Inventory Service',
+    url: process.env.REACT_APP_INVENTORY_SERVICE_URL || 'http://localhost:5003'
+  },
+  notification: { 
+    port: 5004, 
+    name: 'Notification Service',
+    url: process.env.REACT_APP_NOTIFICATION_SERVICE_URL || 'http://localhost:5004'
+  },
+  orchestrator: { 
+    port: 5005, 
+    name: 'Orchestrator Service',
+    url: process.env.REACT_APP_ORCHESTRATOR_SERVICE_URL || 'http://localhost:5005'
+  },
+  monitoring: { 
+    port: 5005, 
+    name: 'Monitoring Service',
+    url: process.env.REACT_APP_MONITORING_SERVICE_URL || 'http://localhost:5005'
+  }
 };
 
 export const ServiceProvider = ({ children }) => {
@@ -30,10 +54,10 @@ export const ServiceProvider = ({ children }) => {
   const apiCall = useCallback(async (service, endpoint, method = 'GET', data = null) => {
     try {
       setLoading(true);
-      const baseURL = process.env.REACT_APP_API_BASE_URL || `http://localhost:${SERVICES[service].port}`;;
+      const serviceURL = SERVICES[service].url;
       const config = {
         method,
-        url: `${baseURL}${endpoint}`,
+        url: `${serviceURL}${endpoint}`,
         timeout: 10000,
         headers: {
           'Content-Type': 'application/json',
