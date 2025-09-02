@@ -33,7 +33,7 @@ FROM python:3.11-slim AS production
 # Set environment variables
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
-    PATH=/root/.local/bin:$PATH \
+    PATH=/usr/local/bin:$PATH \
     ENVIRONMENT=production
 
 # Install runtime dependencies
@@ -49,8 +49,8 @@ RUN groupadd -r appuser && useradd -r -g appuser appuser
 # Create application directory
 WORKDIR /app
 
-# Copy Python dependencies from builder stage
-COPY --from=builder /root/.local /root/.local
+# Copy Python dependencies from builder stage to a location accessible by appuser
+COPY --from=builder /root/.local /usr/local
 
 # Copy application code
 COPY . .

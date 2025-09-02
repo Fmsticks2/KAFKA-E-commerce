@@ -1,0 +1,82 @@
+# Git files
+.git
+.gitignore
+
+# Python cache
+__pycache__
+*.pyc
+*.pyo
+*.pyd
+.Python
+build
+develop-eggs
+dist
+downloads
+eggs
+.eggs
+lib
+lib64
+parts
+sdist
+var
+wheels
+*.egg-info
+.installed.cfg
+*.egg
+
+# Virtual environments
+venv
+env
+ENV
+
+# IDE files
+.vscode
+.idea
+*.swp
+*.swo
+*~
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Logs
+logs
+*.log
+
+# Data directories
+data
+temp
+kafka_local
+
+# Test files
+.pytest_cache
+test_results.json
+errors.txt
+
+# Documentation
+*.md
+CHANGELOG.md
+DEPLOYMENT_GUIDE.md
+RAILWAY_DEPLOYMENT.md
+RENDER_DEPLOYMENT_GUIDE.md
+RENDER_FIX_GUIDE.md
+RENDER_TROUBLESHOOTING.md
+
+# Frontend dashboard (not needed in backend image)
+frontend-dashboard
+
+# Development files
+# docker-compose.yml - needed by application
+docker-compose.prod.yml
+requirements-dev.txt
+render.yaml
+apt.txt
+runtime.txt
+
+# Package files
+package-lock.json
+
+# Environment files (except .env.example)
+.env
+.env.render

@@ -142,3 +142,20 @@ class Config:
             'group.id': group_id
         })
         return config
+    
+    @classmethod
+    def get_cors_origins(cls):
+        """Get CORS origins configuration for frontend integration"""
+        cors_origins_env = os.getenv('CORS_ORIGINS', 'http://localhost:3000')
+        
+        # Parse comma-separated origins
+        origins = [origin.strip() for origin in cors_origins_env.split(',') if origin.strip()]
+        
+        # Add default development origins if not in production
+        if cls.ENVIRONMENT != 'production':
+            dev_origins = ['http://localhost:3000', 'http://127.0.0.1:3000']
+            for origin in dev_origins:
+                if origin not in origins:
+                    origins.append(origin)
+        
+        return origins

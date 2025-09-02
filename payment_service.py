@@ -2,10 +2,10 @@ import json
 import uuid
 import threading
 import time
-import random
 from datetime import datetime
 from typing import Dict, List, Any, Optional
 from flask import Flask, request, jsonify
+from flask_cors import CORS
 import structlog
 from config import Config
 from kafka_utils import KafkaConnectionManager, MessageProducer, MessageConsumer
@@ -311,6 +311,15 @@ class PaymentService:
 
 # Flask web service for payment management
 app = Flask(__name__)
+
+# Configure CORS for Vercel frontend integration
+cors_origins = Config.get_cors_origins()
+CORS(app, 
+     origins=cors_origins,
+     methods=['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+     allow_headers=['Content-Type', 'Authorization', 'X-Requested-With', 'Accept', 'Origin'],
+     supports_credentials=True)
+
 payment_service = PaymentService()
 
 @app.route('/health', methods=['GET'])

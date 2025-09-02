@@ -1,5 +1,6 @@
 confluent-kafka==2.1.1
 flask==2.3.3
+flask-cors==4.0.0
 structlog==23.1.0
 python-dotenv==1.0.0
 prometheus-client==0.17.1

@@ -5,6 +5,7 @@ import time
 from datetime import datetime
 from typing import Dict, List, Any, Optional
 from flask import Flask, request, jsonify
+from flask_cors import CORS
 import structlog
 from jsonschema import validate, ValidationError
 from config import Config
@@ -317,6 +318,15 @@ class OrderService:
 
 # Flask web service for order management
 app = Flask(__name__)
+
+# Configure CORS for Vercel frontend integration
+cors_origins = Config.get_cors_origins()
+CORS(app, 
+     origins=cors_origins,
+     methods=['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+     allow_headers=['Content-Type', 'Authorization', 'X-Requested-With', 'Accept', 'Origin'],
+     supports_credentials=True)
+
 order_service = OrderService()
 
 @app.route('/health', methods=['GET'])
