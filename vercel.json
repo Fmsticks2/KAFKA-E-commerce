@@ -1,9 +1,9 @@
 {
   "version": 2,
   "name": "kafka-ecommerce-dashboard",
-  "buildCommand": "npm run build",
+  "buildCommand": "cd frontend-dashboard && npm install && npm run build",
   "outputDirectory": "frontend-dashboard/build",
-  "installCommand": "npm install",
+  "installCommand": "cd frontend-dashboard && npm install",
   "framework": null,
   "rewrites": [
     {
@@ -11,7 +11,6 @@
       "destination": "/index.html"
     }
   ],
-
   "env": {
     "CI": "false"
   }
