@@ -18,6 +18,11 @@ from pathlib import Path
 os.environ['USE_EMBEDDED_KAFKA'] = 'true'
 os.environ['ENVIRONMENT'] = 'production'
 os.environ['DEBUG'] = 'false'
+os.environ['EMBEDDED_KAFKA_URL'] = 'http://localhost:9093'
+os.environ['EMBEDDED_KAFKA_PORT'] = '9093'
+# Ensure no conflicting Kafka settings
+if 'KAFKA_BOOTSTRAP_SERVERS' in os.environ:
+    del os.environ['KAFKA_BOOTSTRAP_SERVERS']
 
 # Add current directory to Python path
 sys.path.insert(0, str(Path(__file__).parent))

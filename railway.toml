@@ -19,9 +19,9 @@ DEBUG = "false"
 HOST = "0.0.0.0"
 
 # Use embedded Kafka instead of external Kafka
-KAFKA_BOOTSTRAP_SERVERS = "localhost:9092"
-EMBEDDED_KAFKA_PORT = "9092"
 USE_EMBEDDED_KAFKA = "true"
+EMBEDDED_KAFKA_URL = "http://localhost:9093"
+EMBEDDED_KAFKA_PORT = "9093"
 
 # Service ports
 ORDER_SERVICE_PORT = "5001"
