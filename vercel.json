@@ -10,12 +10,7 @@
       }
     }
   ],
-  "routes": [
-    {
-      "src": "/(.*)",
-      "dest": "/frontend-dashboard/$1"
-    }
-  ],
+
   "rewrites": [
     {
       "source": "/(.*)",
