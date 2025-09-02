@@ -13,12 +13,18 @@ import threading
 import subprocess
 from pathlib import Path
 
+# Set environment variables BEFORE importing any modules
+os.environ['USE_EMBEDDED_KAFKA'] = 'true'
+os.environ['ENVIRONMENT'] = 'production'
+os.environ['DEBUG'] = 'false'
+os.environ['KAFKA_BOOTSTRAP_SERVERS'] = 'embedded://localhost:9092'
+os.environ['EMBEDDED_KAFKA_URL'] = 'http://localhost:9092'
+
 # Add current directory to Python path
 sys.path.insert(0, str(Path(__file__).parent))
 
-# Import our modules
+# Import our modules AFTER setting environment variables
 from embedded_kafka import EmbeddedKafka
-from main import app
 import structlog
 
 # Setup logging
@@ -35,14 +41,37 @@ def start_embedded_kafka():
         logger.error("Failed to start embedded Kafka", error=str(e))
         return None
 
+def start_simple_flask_app():
+    """Start a simple Flask app without the complex main.py launcher"""
+    from flask import Flask, jsonify
+    from flask_cors import CORS
+    
+    app = Flask(__name__)
+    CORS(app)
+    
+    @app.route('/health')
+    def health():
+        return jsonify({
+            'status': 'healthy',
+            'timestamp': time.time(),
+            'kafka': 'embedded',
+            'environment': 'railway'
+        })
+    
+    @app.route('/')
+    def home():
+        return jsonify({
+            'message': 'Kafka E-commerce API',
+            'status': 'running',
+            'version': '1.0.0',
+            'kafka': 'embedded'
+        })
+    
+    return app
+
 def main():
     """Main startup function"""
     logger.info("Starting Railway deployment...")
-    
-    # Set environment variables for Railway
-    os.environ.setdefault('USE_EMBEDDED_KAFKA', 'true')
-    os.environ.setdefault('ENVIRONMENT', 'production')
-    os.environ.setdefault('DEBUG', 'false')
     
     # Get port from Railway
     port = int(os.environ.get('PORT', 8000))
@@ -55,10 +84,11 @@ def main():
     kafka_thread.start()
     
     # Give Kafka time to start
-    time.sleep(2)
+    time.sleep(3)
     
-    # Start the Flask application
+    # Start the simplified Flask application
     try:
+        app = start_simple_flask_app()
         app.run(host=host, port=port, debug=False)
     except Exception as e:
         logger.error("Failed to start Flask app", error=str(e))

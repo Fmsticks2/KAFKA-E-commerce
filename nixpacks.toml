@@ -1,5 +1,5 @@
 [phases.setup]
-nixPkgs = ['python313', 'gcc', 'pkg-config']
+nixPkgs = ['python313']
 
 [phases.install]
 cmds = [
@@ -8,4 +8,4 @@ cmds = [
 ]
 
 [start]
-cmd = 'python start-railway.py'
+cmd = 'python railway_main.py'
