@@ -11,7 +11,7 @@
       "destination": "/index.html"
     }
   ],
-  "functions": {},
+
   "env": {
     "CI": "false"
   }
