@@ -1,8 +1,11 @@
 {
   "version": 2,
   "name": "kafka-ecommerce-dashboard",
-  "outputDirectory": "frontend-dashboard/build",
-  "framework": null,
+  "buildCommand": "npm run build",
+  "outputDirectory": "build",
+  "installCommand": "npm install",
+  "framework": "create-react-app",
+  "cwd": "frontend-dashboard",
   "rewrites": [
     {
       "source": "/(.*)",
