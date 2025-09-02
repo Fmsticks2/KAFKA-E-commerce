@@ -1,10 +1,21 @@
 {
   "version": 2,
   "name": "kafka-ecommerce-dashboard",
-  "buildCommand": "cd frontend-dashboard && npm install && npm run build",
-  "outputDirectory": "frontend-dashboard/build",
-  "installCommand": "cd frontend-dashboard && npm install",
-  "framework": null,
+  "builds": [
+    {
+      "src": "frontend-dashboard/package.json",
+      "use": "@vercel/static-build",
+      "config": {
+        "distDir": "build"
+      }
+    }
+  ],
+  "routes": [
+    {
+      "src": "/(.*)",
+      "dest": "/frontend-dashboard/$1"
+    }
+  ],
   "rewrites": [
     {
       "source": "/(.*)",
