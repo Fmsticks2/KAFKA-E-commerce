@@ -1,15 +1,13 @@
 # Render deployment configuration for Kafka E-commerce Backend
 services:
-  # Main Application Service
   - type: web
     name: kafka-ecommerce-backend
     env: python
     plan: starter
     runtime: python-3.11.9
     buildCommand: |
-      apt-get update && apt-get install -y build-essential librdkafka-dev pkg-config libssl-dev libffi-dev
       pip install --upgrade pip setuptools wheel
-      pip install --only-binary=all -r requirements-prod.txt || pip install -r requirements-prod.txt
+      pip install --only-binary=:all: -r requirements-prod.txt || pip install -r requirements-prod.txt
     startCommand: python main.py
     envVars:
       - key: ENVIRONMENT
@@ -20,7 +18,7 @@ services:
         value: 10000
       - key: HOST
         value: 0.0.0.0
-      
+
       # Kafka Configuration
       - key: KAFKA_BOOTSTRAP_SERVERS
         value: localhost:9092
@@ -30,7 +28,7 @@ services:
         value: true
       - key: KAFKA_AUTO_COMMIT_INTERVAL_MS
         value: 1000
-      
+
       # Service Ports (Internal)
       - key: ORDER_SERVICE_PORT
         value: 5001
@@ -46,56 +44,50 @@ services:
         value: 5006
       - key: EMBEDDED_KAFKA_PORT
         value: 9092
-      
-      # Database Configuration (if using external DB)
+
+      # Database Configuration
       - key: DATABASE_URL
         fromDatabase:
           name: kafka-ecommerce-db
           property: connectionString
-      
-      # External Service URLs (set these in Render dashboard)
+
+      # External Service URLs
       - key: PAYMENT_GATEWAY_URL
         value: https://api.stripe.com
       - key: EMAIL_SERVICE_URL
         value: https://api.sendgrid.com
       - key: SMS_SERVICE_URL
         value: https://api.twilio.com
-      
+
       # Security
       - key: SECRET_KEY
         generateValue: true
       - key: JWT_SECRET
         generateValue: true
-      
+
       # Monitoring
       - key: LOG_LEVEL
         value: INFO
       - key: METRICS_ENABLED
         value: true
-      
+
       # CORS Configuration
       - key: CORS_ORIGINS
         value: https://your-frontend-domain.vercel.app,http://localhost:3000
-    
-    # Health check configuration
+
     healthCheckPath: /health
-    
-    # Auto-deploy from main branch
     autoDeploy: true
-    
-    # Resource allocation
+
     disk:
       name: kafka-ecommerce-disk
       mountPath: /opt/render/project/data
       sizeGB: 1
 
-# Optional: Database service (if you want managed database)
 databases:
   - name: kafka-ecommerce-db
     databaseName: kafka_ecommerce
     user: kafka_user
     plan: starter
 
-# Optional: Redis service for caching
   - name: kafka-ecommerce-redis
     plan: starter

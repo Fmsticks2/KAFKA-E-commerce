@@ -1,1 +1,5 @@
+build-essential
 librdkafka-dev
+pkg-config
+libssl-dev
+libffi-dev
