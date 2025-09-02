@@ -30,7 +30,7 @@ export const ServiceProvider = ({ children }) => {
   const apiCall = useCallback(async (service, endpoint, method = 'GET', data = null) => {
     try {
       setLoading(true);
-      const baseURL = `http://localhost:${SERVICES[service].port}`;
+      const baseURL = process.env.REACT_APP_API_BASE_URL || `http://localhost:${SERVICES[service].port}`;;
       const config = {
         method,
         url: `${baseURL}${endpoint}`,
