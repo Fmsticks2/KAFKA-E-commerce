@@ -1,0 +1,96 @@
+Downloading packaging-25.0-py3-none-any.whl (66 kB)
+Building wheels for collected packages: confluent-kafka, pyyaml
+  Building wheel for confluent-kafka (pyproject.toml): started
+  Building wheel for confluent-kafka (pyproject.toml): finished with status 'error'
+  error: subprocess-exited-with-error
+  
+  × Building wheel for confluent-kafka (pyproject.toml) did not run successfully.
+  │ exit code: 1
+  ╰─> [72 lines of output]
+      /tmp/pip-build-env-8qmazn8w/overlay/lib/python3.13/site-packages/setuptools/dist.py:759: SetuptoolsDeprecationWarning: License classifiers are deprecated.
+      !!
+      
+              ********************************************************************************
+              Please consider removing the following classifiers in favor of a SPDX license expression:
+      
+              License :: OSI Approved :: Apache Software License
+      
+              See https://packaging.python.org/en/latest/guides/writing-pyproject-toml/#license for details.
+              ********************************************************************************
+      
+      !!
+        self._finalize_license_expression()
+      running bdist_wheel
+      running build
+      running build_py
+      creating build/lib.linux-x86_64-cpython-313/confluent_kafka
+      copying src/confluent_kafka/__init__.py -> build/lib.linux-x86_64-cpython-313/confluent_kafka
+      copying src/confluent_kafka/deserializing_consumer.py -> build/lib.linux-x86_64-cpython-313/confluent_kafka
+      copying src/confluent_kafka/serializing_producer.py -> build/lib.linux-x86_64-cpython-313/confluent_kafka
+      copying src/confluent_kafka/error.py -> build/lib.linux-x86_64-cpython-313/confluent_kafka
+      creating build/lib.linux-x86_64-cpython-313/confluent_kafka/_model
+      copying src/confluent_kafka/_model/__init__.py -> build/lib.linux-x86_64-cpython-313/confluent_kafka/_model
+      creating build/lib.linux-x86_64-cpython-313/confluent_kafka/serialization
+      copying src/confluent_kafka/serialization/__init__.py -> build/lib.linux-x86_64-cpython-313/confluent_kafka/serialization
+      creating build/lib.linux-x86_64-cpython-313/confluent_kafka/schema_registry
+      copying src/confluent_kafka/schema_registry/protobuf.py -> build/lib.linux-x86_64-cpython-313/confluent_kafka/schema_registry
+      copying src/confluent_kafka/schema_registry/__init__.py -> build/lib.linux-x86_64-cpython-313/confluent_kafka/schema_registry
+      copying src/confluent_kafka/schema_registry/json_schema.py -> build/lib.linux-x86_64-cpython-313/confluent_kafka/schema_registry
+      copying src/confluent_kafka/schema_registry/schema_registry_client.py -> build/lib.linux-x86_64-cpython-313/confluent_kafka/schema_registry
+      copying src/confluent_kafka/schema_registry/avro.py -> build/lib.linux-x86_64-cpython-313/confluent_kafka/schema_registry
+      copying src/confluent_kafka/schema_registry/error.py -> build/lib.linux-x86_64-cpython-313/confluent_kafka/schema_registry
+      creating build/lib.linux-x86_64-cpython-313/confluent_kafka/avro
+      copying src/confluent_kafka/avro/__init__.py -> build/lib.linux-x86_64-cpython-313/confluent_kafka/avro
+      copying src/confluent_kafka/avro/cached_schema_registry_client.py -> build/lib.linux-x86_64-cpython-313/confluent_kafka/avro
+      copying src/confluent_kafka/avro/error.py -> build/lib.linux-x86_64-cpython-313/confluent_kafka/avro
+      copying src/confluent_kafka/avro/load.py -> build/lib.linux-x86_64-cpython-313/confluent_kafka/avro
+      creating build/lib.linux-x86_64-cpython-313/confluent_kafka/_util
+      copying src/confluent_kafka/_util/__init__.py -> build/lib.linux-x86_64-cpython-313/confluent_kafka/_util
+      copying src/confluent_kafka/_util/conversion_util.py -> build/lib.linux-x86_64-cpython-313/confluent_kafka/_util
+      copying src/confluent_kafka/_util/validation_util.py -> build/lib.linux-x86_64-cpython-313/confluent_kafka/_util
+      creating build/lib.linux-x86_64-cpython-313/confluent_kafka/kafkatest
+      copying src/confluent_kafka/kafkatest/__init__.py -> build/lib.linux-x86_64-cpython-313/confluent_kafka/kafkatest
+      copying src/confluent_kafka/kafkatest/verifiable_producer.py -> build/lib.linux-x86_64-cpython-313/confluent_kafka/kafkatest
+      copying src/confluent_kafka/kafkatest/verifiable_client.py -> build/lib.linux-x86_64-cpython-313/confluent_kafka/kafkatest
+      copying src/confluent_kafka/kafkatest/verifiable_consumer.py -> build/lib.linux-x86_64-cpython-313/confluent_kafka/kafkatest
+      creating build/lib.linux-x86_64-cpython-313/confluent_kafka/admin
+      copying src/confluent_kafka/admin/_group.py -> build/lib.linux-x86_64-cpython-313/confluent_kafka/admin
+      copying src/confluent_kafka/admin/__init__.py -> build/lib.linux-x86_64-cpython-313/confluent_kafka/admin
+      copying src/confluent_kafka/admin/_listoffsets.py -> build/lib.linux-x86_64-cpython-313/confluent_kafka/admin
+      copying src/confluent_kafka/admin/_config.py -> build/lib.linux-x86_64-cpython-313/confluent_kafka/admin
+      copying src/confluent_kafka/admin/_cluster.py -> build/lib.linux-x86_64-cpython-313/confluent_kafka/admin
+      copying src/confluent_kafka/admin/_scram.py -> build/lib.linux-x86_64-cpython-313/confluent_kafka/admin
+      copying src/confluent_kafka/admin/_metadata.py -> build/lib.linux-x86_64-cpython-313/confluent_kafka/admin
+      copying src/confluent_kafka/admin/_resource.py -> build/lib.linux-x86_64-cpython-313/confluent_kafka/admin
+      copying src/confluent_kafka/admin/_acl.py -> build/lib.linux-x86_64-cpython-313/confluent_kafka/admin
+      copying src/confluent_kafka/admin/_topic.py -> build/lib.linux-x86_64-cpython-313/confluent_kafka/admin
+      creating build/lib.linux-x86_64-cpython-313/confluent_kafka/avro/serializer
+      copying src/confluent_kafka/avro/serializer/__init__.py -> build/lib.linux-x86_64-cpython-313/confluent_kafka/avro/serializer
+      copying src/confluent_kafka/avro/serializer/message_serializer.py -> build/lib.linux-x86_64-cpython-313/confluent_kafka/avro/serializer
+      warning: build_py: byte-compiling is disabled, skipping.
+      
+      running build_ext
+      building 'confluent_kafka.cimpl' extension
+      creating build/temp.linux-x86_64-cpython-313/tmp/pip-install-lk6qx92u/confluent-kafka_9d58bf51034d40518ddb4ca0847c048b/src/confluent_kafka/src
+      gcc -fno-strict-overflow -Wsign-compare -DNDEBUG -g -O3 -Wall -fPIC -I/opt/render/project/src/.venv/include -I/usr/local/include/python3.13 -c /tmp/pip-install-lk6qx92u/confluent-kafka_9d58bf51034d40518ddb4ca0847c048b/src/confluent_kafka/src/Admin.c -o build/temp.linux-x86_64-cpython-313/tmp/pip-install-lk6qx92u/confluent-kafka_9d58bf51034d40518ddb4ca0847c048b/src/confluent_kafka/src/Admin.o
+      In file included from /tmp/pip-install-lk6qx92u/confluent-kafka_9d58bf51034d40518ddb4ca0847c048b/src/confluent_kafka/src/Admin.c:17:
+      /tmp/pip-install-lk6qx92u/confluent-kafka_9d58bf51034d40518ddb4ca0847c048b/src/confluent_kafka/src/confluent_kafka.h:23:10: fatal error: librdkafka/rdkafka.h: No such file or directory
+         23 | #include <librdkafka/rdkafka.h>
+            |          ^~~~~~~~~~~~~~~~~~~~~~
+      compilation terminated.
+      error: command '/usr/bin/gcc' failed with exit code 1
+      [end of output]
+  
+  note: This error originates from a subprocess, and is likely not a problem with pip.
+  ERROR: Failed building wheel for confluent-kafka
+  Building wheel for pyyaml (pyproject.toml): started
+  Building wheel for pyyaml (pyproject.toml): finished with status 'done'
+  Created wheel for pyyaml: filename=pyyaml-6.0.1-cp313-cp313-linux_x86_64.whl size=45459 sha256=e6a29bd9868bf5d1c8caf444763a32a176d1e6b41d3097c0c1ef12ef865f3884
+  Stored in directory: /opt/render/.cache/wheels/9c/9e/34/1e1548811b63a9d001469f21797e8b7d5c216d8eb928e7d6ad
+Successfully built pyyaml
+Failed to build confluent-kafka
+[notice] A new release of pip is available: 25.1.1 -> 25.2
+[notice] To update, run: pip install --upgrade pip
+ERROR: Failed to build installable wheels for some pyproject.toml based projects (confluent-kafka)
+==> Build failed 😞
+==> Common ways to troubleshoot your deploy: https://render.com/docs/troubleshooting-deploys

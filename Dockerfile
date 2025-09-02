@@ -13,6 +13,10 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
 # Install system dependencies
 RUN apt-get update && apt-get install -y \
     build-essential \
+    librdkafka-dev \
+    pkg-config \
+    libssl-dev \
+    libffi-dev \
     curl \
     && rm -rf /var/lib/apt/lists/*
 
@@ -20,8 +24,8 @@ RUN apt-get update && apt-get install -y \
 WORKDIR /app
 
 # Copy requirements and install Python dependencies
-COPY requirements.txt .
-RUN pip install --user --no-cache-dir -r requirements.txt
+COPY requirements-prod.txt .
+RUN pip install --user --no-cache-dir -r requirements-prod.txt
 
 # Production stage
 FROM python:3.11-slim as production
