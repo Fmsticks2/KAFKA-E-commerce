@@ -1,0 +1,16 @@
+{
+  "name": "kafka-ecommerce",
+  "version": "1.0.0",
+  "description": "Kafka E-commerce platform with React frontend",
+  "private": true,
+  "scripts": {
+    "build": "cd frontend-dashboard && npm install && npm run build",
+    "start": "cd frontend-dashboard && npm start",
+    "install": "cd frontend-dashboard && npm install",
+    "postinstall": "cd frontend-dashboard && npm install"
+  },
+  "engines": {
+    "node": "22.x",
+    "npm": "11.x"
+  }
+}
