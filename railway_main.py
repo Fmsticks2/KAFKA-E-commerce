@@ -97,12 +97,19 @@ def create_app():
                 # Generate unique order ID
                 order_id = f"order_{uuid.uuid4().hex[:12]}"
                 
+                # Calculate total amount from items
+                total_amount = 0
+                if 'items' in order_data:
+                    for item_data in order_data['items']:
+                        item_total = float(item_data['price']) * int(item_data['quantity'])
+                        total_amount += item_total
+                
                 # Create order in database
                 new_order = Order(
                     id=order_id,
                     customer_id=order_data.get('customer_id', f"customer_{uuid.uuid4().hex[:8]}"),
                     status='created',
-                    total_amount=float(order_data.get('total_amount', 0))
+                    total_amount=total_amount
                 )
                 session.add(new_order)
                 
