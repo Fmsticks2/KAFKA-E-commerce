@@ -28,6 +28,16 @@ const ActionsGrid = styled.div`
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
   gap: 24px;
+  
+  @media (max-width: 768px) {
+    grid-template-columns: 1fr;
+    gap: 16px;
+  }
+  
+  @media (max-width: 480px) {
+    grid-template-columns: 1fr;
+    gap: 12px;
+  }
 `;
 
 const ActionCard = styled.div`
@@ -36,6 +46,21 @@ const ActionCard = styled.div`
   padding: 24px;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
   border: 1px solid #e2e8f0;
+  transition: all 0.2s ease;
+  
+  &:hover {
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+    transform: translateY(-2px);
+  }
+  
+  @media (max-width: 768px) {
+    padding: 20px;
+    border-radius: 8px;
+  }
+  
+  @media (max-width: 480px) {
+    padding: 16px;
+  }
 `;
 
 const CardHeader = styled.div`
@@ -118,18 +143,33 @@ const Button = styled.button`
   font-weight: 500;
   cursor: pointer;
   transition: all 0.2s ease;
+  min-height: 44px;
+  width: 100%;
   
   &:hover {
     background-color: #d97706;
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(245, 158, 11, 0.3);
+  }
+  
+  &:active {
+    transform: translateY(0);
   }
   
   &:disabled {
     background-color: #9ca3af;
     cursor: not-allowed;
+    transform: none;
+    box-shadow: none;
   }
   
   .button-icon {
     font-size: 16px;
+  }
+  
+  @media (max-width: 768px) {
+    padding: 14px 16px;
+    font-size: 14px;
   }
 `;
 
@@ -218,7 +258,7 @@ const InventoryService = () => {
       return;
     }
     
-    const result = await inventoryService.getProduct(getProductId);
+    const result = await inventoryService.getProductInventory(getProductId);
     setGetProductResult(result);
     
     if (result.success) {

@@ -541,6 +541,44 @@ def health_check():
             'error': str(e)
         }), 503
 
+@app.route('/flows', methods=['POST'])
+def start_order_flow():
+    """Start a new order flow"""
+    try:
+        data = request.get_json()
+        
+        if not data:
+            return jsonify({'error': 'No data provided'}), 400
+        
+        # Validate required fields
+        required_fields = ['order_id', 'customer_id', 'items', 'total_amount']
+        for field in required_fields:
+            if field not in data:
+                return jsonify({'error': f'Missing required field: {field}'}), 400
+        
+        # Start the order flow
+        result = orchestrator.start_order_flow(data)
+        
+        if result.get('success'):
+            return jsonify({
+                'success': True,
+                'order_id': data['order_id'],
+                'flow_id': result.get('flow_id'),
+                'message': 'Order flow started successfully'
+            }), 201
+        else:
+            return jsonify({
+                'success': False,
+                'error': result.get('error', 'Failed to start order flow')
+            }), 500
+            
+    except Exception as e:
+        logger.error("Error starting order flow", error=str(e))
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
 @app.route('/flows/<order_id>', methods=['GET'])
 def get_order_flow(order_id):
     """Get order flow by ID"""

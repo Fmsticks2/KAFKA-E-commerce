@@ -228,6 +228,15 @@ const FlowStep = styled.div`
 const OrchestratorService = () => {
   const { orchestratorService, loading } = useServices();
   
+  // Start Order Flow State
+  const [startFlowData, setStartFlowData] = useState({
+    order_id: '',
+    customer_id: '',
+    items: '',
+    total_amount: ''
+  });
+  const [startFlowResult, setStartFlowResult] = useState(null);
+  
   // Get Order Flow State
   const [getFlowOrderId, setGetFlowOrderId] = useState('');
   const [getFlowResult, setGetFlowResult] = useState(null);
@@ -237,6 +246,42 @@ const OrchestratorService = () => {
   
   // Get Metrics State
   const [getMetricsResult, setGetMetricsResult] = useState(null);
+
+  const handleStartOrderFlow = async (e) => {
+    e.preventDefault();
+    
+    if (!startFlowData.order_id || !startFlowData.customer_id || !startFlowData.items || !startFlowData.total_amount) {
+      toast.error('Please fill in all required fields');
+      return;
+    }
+    
+    try {
+      // Parse items as JSON array
+      const parsedItems = JSON.parse(startFlowData.items);
+      
+      const orderData = {
+        ...startFlowData,
+        items: parsedItems,
+        total_amount: parseFloat(startFlowData.total_amount)
+      };
+      
+      const result = await orchestratorService.startOrderFlow(orderData);
+      setStartFlowResult(result);
+      
+      if (result.success) {
+        toast.success('Order flow started successfully!');
+        // Reset form
+        setStartFlowData({
+          order_id: '',
+          customer_id: '',
+          items: '',
+          total_amount: ''
+        });
+      }
+    } catch (error) {
+      toast.error('Invalid items format. Please use valid JSON array.');
+    }
+  };
 
   const handleGetOrderFlow = async (e) => {
     e.preventDefault();
@@ -333,6 +378,73 @@ const OrchestratorService = () => {
       </PageHeader>
 
       <ActionsGrid>
+        {/* Start Order Flow */}
+        <ActionCard>
+          <CardHeader>
+            <Icon icon="mdi:play-circle" className="card-icon" />
+            <h2 className="card-title">Start Order Flow</h2>
+          </CardHeader>
+          
+          <Form onSubmit={handleStartOrderFlow}>
+            <FormGroup>
+              <label>Order ID</label>
+              <Input
+                type="text"
+                value={startFlowData.order_id}
+                onChange={(e) => setStartFlowData({...startFlowData, order_id: e.target.value})}
+                placeholder="Enter unique order ID"
+                required
+              />
+            </FormGroup>
+            
+            <FormGroup>
+              <label>Customer ID</label>
+              <Input
+                type="text"
+                value={startFlowData.customer_id}
+                onChange={(e) => setStartFlowData({...startFlowData, customer_id: e.target.value})}
+                placeholder="Enter customer ID"
+                required
+              />
+            </FormGroup>
+            
+            <FormGroup>
+              <label>Items (JSON Array)</label>
+              <Input
+                type="text"
+                value={startFlowData.items}
+                onChange={(e) => setStartFlowData({...startFlowData, items: e.target.value})}
+                placeholder='[{"product_id": "1", "quantity": 2, "price": 29.99}]'
+                required
+              />
+            </FormGroup>
+            
+            <FormGroup>
+              <label>Total Amount</label>
+              <Input
+                type="number"
+                step="0.01"
+                value={startFlowData.total_amount}
+                onChange={(e) => setStartFlowData({...startFlowData, total_amount: e.target.value})}
+                placeholder="Enter total amount"
+                required
+              />
+            </FormGroup>
+            
+            <Button type="submit" disabled={loading}>
+              <Icon icon="mdi:play-circle" className="button-icon" />
+              Start Order Flow
+            </Button>
+          </Form>
+          
+          {startFlowResult && (
+            <ResultContainer>
+              <div className="result-title">Order Flow Started:</div>
+              <div className="result-content">{JSON.stringify(startFlowResult, null, 2)}</div>
+            </ResultContainer>
+          )}
+        </ActionCard>
+
         {/* Get Order Flow */}
         <ActionCard>
           <CardHeader>

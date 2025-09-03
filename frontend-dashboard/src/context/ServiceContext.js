@@ -157,6 +157,7 @@ export const ServiceProvider = ({ children }) => {
     getAllInventory: () => apiCall('inventory', '/inventory'),
     getProductInventory: (productId) => apiCall('inventory', `/inventory/${productId}`),
     updateInventory: (productId, data) => apiCall('inventory', `/inventory/${productId}`, 'PUT', data),
+    updateProduct: (productId, data) => apiCall('inventory', `/products/${productId}`, 'PUT', data),
     createReservation: (reservationData) => apiCall('inventory', '/reservations', 'POST', reservationData),
     releaseReservation: (reservationId) => apiCall('inventory', `/reservations/${reservationId}/release`, 'POST'),
     getMetrics: () => apiCall('inventory', '/metrics')
@@ -168,6 +169,7 @@ export const ServiceProvider = ({ children }) => {
     getNotification: (notificationId) => apiCall('notification', `/notifications/${notificationId}`),
     getRecipientNotifications: (recipient) => apiCall('notification', `/recipients/${recipient}/notifications`),
     getTemplates: () => apiCall('notification', '/templates'),
+    createTemplate: (templateData) => apiCall('notification', '/templates', 'POST', templateData),
     getMetrics: () => apiCall('notification', '/metrics')
   };
 
@@ -185,6 +187,7 @@ export const ServiceProvider = ({ children }) => {
 
   // Orchestrator Service APIs
   const orchestratorService = {
+    startOrderFlow: (orderData) => apiCall('orchestrator', '/flows', 'POST', orderData),
     getOrderFlow: (orderId) => apiCall('orchestrator', `/flows/${orderId}`),
     getAllFlows: () => apiCall('orchestrator', '/flows'),
     getMetrics: () => apiCall('orchestrator', '/metrics')

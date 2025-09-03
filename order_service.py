@@ -10,6 +10,8 @@ import structlog
 from jsonschema import validate, ValidationError
 from config import Config
 from kafka_utils import KafkaConnectionManager, MessageProducer, MessageConsumer
+from models import DatabaseManager, Order, OrderItem, db_manager
+from sqlalchemy.exc import SQLAlchemyError
 
 # Setup structured logging
 logger = structlog.get_logger(__name__)
@@ -20,8 +22,15 @@ class OrderService:
     def __init__(self):
         self.connection_manager = KafkaConnectionManager()
         self.producer = MessageProducer(self.connection_manager)
-        self.orders = {}  # In-memory order storage (in production, use database)
+        self.db_manager = db_manager
         self.running = False
+        
+        # Initialize database tables
+        try:
+            self.db_manager.create_tables()
+            logger.info("Database tables initialized")
+        except Exception as e:
+            logger.error("Failed to initialize database tables", error=str(e))
         
         # Order validation schema
         self.order_schema = {
@@ -60,43 +69,74 @@ class OrderService:
             # Calculate total amount
             total_amount = sum(item['quantity'] * item['price'] for item in order_data['items'])
             
-            # Create order object
-            order = {
-                'order_id': order_id,
-                'customer_id': order_data['customer_id'],
-                'items': order_data['items'],
-                'total_amount': total_amount,
-                'status': 'created',
-                'created_at': datetime.utcnow().isoformat(),
-                'updated_at': datetime.utcnow().isoformat()
-            }
-            
-            # Store order
-            self.orders[order_id] = order
-            
-            # Publish order created event
-            success = self.producer.send_message(
-                topic=Config.TOPICS['ORDERS_CREATED'],
-                message=order,
-                key=order_id
-            )
-            
-            if success:
-                logger.info("Order created successfully", order_id=order_id, customer_id=order_data['customer_id'])
-                return {
-                    'success': True,
+            # Create order in database
+            session = self.db_manager.get_session()
+            try:
+                # Create order record
+                order = Order(
+                    order_id=order_id,
+                    customer_id=order_data['customer_id'],
+                    total_amount=total_amount,
+                    status='created'
+                )
+                session.add(order)
+                
+                # Create order items
+                for item_data in order_data['items']:
+                    order_item = OrderItem(
+                        order_id=order_id,
+                        product_id=item_data['product_id'],
+                        quantity=item_data['quantity'],
+                        price=item_data['price']
+                    )
+                    session.add(order_item)
+                
+                session.commit()
+                
+                # Prepare order data for Kafka message
+                order_message = {
                     'order_id': order_id,
+                    'customer_id': order_data['customer_id'],
+                    'items': order_data['items'],
+                    'total_amount': total_amount,
                     'status': 'created',
-                    'total_amount': total_amount
+                    'created_at': order.created_at.isoformat(),
+                    'updated_at': order.updated_at.isoformat()
                 }
-            else:
-                # Remove order if publishing failed
-                del self.orders[order_id]
-                logger.error("Failed to publish order created event", order_id=order_id)
+                
+                # Publish order created event
+                success = self.producer.send_message(
+                    topic=Config.TOPICS['ORDERS_CREATED'],
+                    message=order_message,
+                    key=order_id
+                )
+                
+                if success:
+                    logger.info("Order created successfully", order_id=order_id, customer_id=order_data['customer_id'])
+                    return {
+                        'success': True,
+                        'order_id': order_id,
+                        'status': 'created',
+                        'total_amount': total_amount
+                    }
+                else:
+                    # Rollback if publishing failed
+                    session.rollback()
+                    logger.error("Failed to publish order created event", order_id=order_id)
+                    return {
+                        'success': False,
+                        'error': 'Failed to process order'
+                    }
+                    
+            except SQLAlchemyError as e:
+                session.rollback()
+                logger.error("Database error creating order", error=str(e))
                 return {
                     'success': False,
-                    'error': 'Failed to process order'
+                    'error': 'Database error'
                 }
+            finally:
+                session.close()
                 
         except ValidationError as e:
             logger.error("Order validation failed", error=str(e))
@@ -121,7 +161,8 @@ class OrderService:
             validation_errors = []
             
             # Check if order exists
-            if order_id not in self.orders:
+            order = self.get_order(order_id)
+            if not order:
                 validation_errors.append("Order not found")
                 validation_passed = False
             
@@ -145,36 +186,52 @@ class OrderService:
                     validation_passed = False
             
             # Update order status
-            if order_id in self.orders:
-                if validation_passed:
-                    self.orders[order_id]['status'] = 'validated'
-                    self.orders[order_id]['updated_at'] = datetime.utcnow().isoformat()
-                    
-                    # Publish validated order event
-                    self.producer.send_message(
-                        topic=Config.TOPICS['ORDERS_VALIDATED'],
-                        message=self.orders[order_id],
-                        key=order_id
-                    )
-                    
-                    logger.info("Order validated successfully", order_id=order_id)
-                else:
-                    self.orders[order_id]['status'] = 'validation_failed'
-                    self.orders[order_id]['validation_errors'] = validation_errors
-                    self.orders[order_id]['updated_at'] = datetime.utcnow().isoformat()
-                    
-                    # Publish order failed event
-                    self.producer.send_message(
-                        topic=Config.TOPICS['ORDERS_FAILED'],
-                        message={
-                            **self.orders[order_id],
-                            'failure_reason': 'validation_failed',
-                            'errors': validation_errors
-                        },
-                        key=order_id
-                    )
-                    
-                    logger.error("Order validation failed", order_id=order_id, errors=validation_errors)
+            if order:
+                session = self.db_manager.get_session()
+                try:
+                    db_order = session.query(Order).filter(Order.order_id == order_id).first()
+                    if db_order:
+                        if validation_passed:
+                            db_order.status = 'validated'
+                            db_order.updated_at = datetime.utcnow()
+                            session.commit()
+                            
+                            # Get updated order for message
+                            updated_order = self.get_order(order_id)
+                            
+                            # Publish validated order event
+                            self.producer.send_message(
+                                topic=Config.TOPICS['ORDERS_VALIDATED'],
+                                message=updated_order,
+                                key=order_id
+                            )
+                            
+                            logger.info("Order validated successfully", order_id=order_id)
+                        else:
+                            db_order.status = 'validation_failed'
+                            db_order.updated_at = datetime.utcnow()
+                            session.commit()
+                            
+                            # Get updated order for message
+                            updated_order = self.get_order(order_id)
+                            
+                            # Publish order failed event
+                            self.producer.send_message(
+                                topic=Config.TOPICS['ORDERS_FAILED'],
+                                message={
+                                    **updated_order,
+                                    'failure_reason': 'validation_failed',
+                                    'errors': validation_errors
+                                },
+                                key=order_id
+                            )
+                            
+                            logger.error("Order validation failed", order_id=order_id, errors=validation_errors)
+                except SQLAlchemyError as e:
+                    session.rollback()
+                    logger.error("Database error updating order validation", order_id=order_id, error=str(e))
+                finally:
+                    session.close()
             
             return validation_passed
             
@@ -187,12 +244,22 @@ class OrderService:
         try:
             order_id = message['order_id']
             
-            if order_id in self.orders:
-                self.orders[order_id]['status'] = 'payment_completed'
-                self.orders[order_id]['payment_id'] = message.get('payment_id')
-                self.orders[order_id]['updated_at'] = datetime.utcnow().isoformat()
-                
-                logger.info("Payment completed for order", order_id=order_id)
+            session = self.db_manager.get_session()
+            try:
+                order = session.query(Order).filter(Order.order_id == order_id).first()
+                if order:
+                    order.status = 'payment_completed'
+                    order.updated_at = datetime.utcnow()
+                    session.commit()
+                    
+                    logger.info("Payment completed for order", order_id=order_id)
+                    return True
+            except SQLAlchemyError as e:
+                session.rollback()
+                logger.error("Database error updating payment completed", order_id=order_id, error=str(e))
+                return False
+            finally:
+                session.close()
             
             return True
             
@@ -205,22 +272,35 @@ class OrderService:
         try:
             order_id = message['order_id']
             
-            if order_id in self.orders:
-                self.orders[order_id]['status'] = 'payment_failed'
-                self.orders[order_id]['failure_reason'] = message.get('failure_reason', 'Payment processing failed')
-                self.orders[order_id]['updated_at'] = datetime.utcnow().isoformat()
-                
-                # Publish order failed event
-                self.producer.send_message(
-                    topic=Config.TOPICS['ORDERS_FAILED'],
-                    message={
-                        **self.orders[order_id],
-                        'failure_reason': 'payment_failed'
-                    },
-                    key=order_id
-                )
-                
-                logger.error("Payment failed for order", order_id=order_id)
+            session = self.db_manager.get_session()
+            try:
+                order = session.query(Order).filter(Order.order_id == order_id).first()
+                if order:
+                    order.status = 'payment_failed'
+                    order.updated_at = datetime.utcnow()
+                    session.commit()
+                    
+                    # Get updated order for message
+                    updated_order = self.get_order(order_id)
+                    
+                    # Publish order failed event
+                    self.producer.send_message(
+                        topic=Config.TOPICS['ORDERS_FAILED'],
+                        message={
+                            **updated_order,
+                            'failure_reason': 'payment_failed'
+                        },
+                        key=order_id
+                    )
+                    
+                    logger.error("Payment failed for order", order_id=order_id)
+                    return True
+            except SQLAlchemyError as e:
+                session.rollback()
+                logger.error("Database error updating payment failed", order_id=order_id, error=str(e))
+                return False
+            finally:
+                session.close()
             
             return True
             
@@ -233,12 +313,22 @@ class OrderService:
         try:
             order_id = message['order_id']
             
-            if order_id in self.orders:
-                self.orders[order_id]['status'] = 'completed'
-                self.orders[order_id]['completed_at'] = datetime.utcnow().isoformat()
-                self.orders[order_id]['updated_at'] = datetime.utcnow().isoformat()
-                
-                logger.info("Order completed successfully", order_id=order_id)
+            session = self.db_manager.get_session()
+            try:
+                order = session.query(Order).filter(Order.order_id == order_id).first()
+                if order:
+                    order.status = 'completed'
+                    order.updated_at = datetime.utcnow()
+                    session.commit()
+                    
+                    logger.info("Order completed successfully", order_id=order_id)
+                    return True
+            except SQLAlchemyError as e:
+                session.rollback()
+                logger.error("Database error updating order completed", order_id=order_id, error=str(e))
+                return False
+            finally:
+                session.close()
             
             return True
             
@@ -248,28 +338,96 @@ class OrderService:
     
     def get_order(self, order_id: str) -> Optional[Dict[str, Any]]:
         """Get order by ID"""
-        return self.orders.get(order_id)
+        session = self.db_manager.get_session()
+        try:
+            order = session.query(Order).filter(Order.order_id == order_id).first()
+            if order:
+                # Get order items
+                items = session.query(OrderItem).filter(OrderItem.order_id == order_id).all()
+                
+                return {
+                    'order_id': order.order_id,
+                    'customer_id': order.customer_id,
+                    'total_amount': float(order.total_amount),
+                    'status': order.status,
+                    'created_at': order.created_at.isoformat(),
+                    'updated_at': order.updated_at.isoformat(),
+                    'items': [{
+                        'product_id': item.product_id,
+                        'quantity': item.quantity,
+                        'price': float(item.price)
+                    } for item in items]
+                }
+            return None
+        except SQLAlchemyError as e:
+            logger.error("Database error getting order", order_id=order_id, error=str(e))
+            return None
+        finally:
+            session.close()
     
     def get_orders_by_customer(self, customer_id: str) -> List[Dict[str, Any]]:
         """Get all orders for a customer"""
-        return [order for order in self.orders.values() if order['customer_id'] == customer_id]
+        session = self.db_manager.get_session()
+        try:
+            orders = session.query(Order).filter(Order.customer_id == customer_id).all()
+            result = []
+            
+            for order in orders:
+                # Get order items
+                items = session.query(OrderItem).filter(OrderItem.order_id == order.order_id).all()
+                
+                result.append({
+                    'order_id': order.order_id,
+                    'customer_id': order.customer_id,
+                    'total_amount': float(order.total_amount),
+                    'status': order.status,
+                    'created_at': order.created_at.isoformat(),
+                    'updated_at': order.updated_at.isoformat(),
+                    'items': [{
+                        'product_id': item.product_id,
+                        'quantity': item.quantity,
+                        'price': float(item.price)
+                    } for item in items]
+                })
+            
+            return result
+        except SQLAlchemyError as e:
+            logger.error("Database error getting customer orders", customer_id=customer_id, error=str(e))
+            return []
+        finally:
+            session.close()
     
     def get_metrics(self) -> Dict[str, Any]:
         """Get service metrics"""
-        total_orders = len(self.orders)
-        status_counts = {}
-        
-        for order in self.orders.values():
-            status = order['status']
-            status_counts[status] = status_counts.get(status, 0) + 1
-        
-        producer_metrics = self.producer.get_metrics()
-        
-        return {
-            'total_orders': total_orders,
-            'status_distribution': status_counts,
-            'producer_metrics': producer_metrics
-        }
+        session = self.db_manager.get_session()
+        try:
+            # Get total orders count
+            total_orders = session.query(Order).count()
+            
+            # Get status distribution
+            status_counts = {}
+            orders = session.query(Order).all()
+            
+            for order in orders:
+                status = order.status
+                status_counts[status] = status_counts.get(status, 0) + 1
+            
+            producer_metrics = self.producer.get_metrics()
+            
+            return {
+                'total_orders': total_orders,
+                'status_distribution': status_counts,
+                'producer_metrics': producer_metrics
+            }
+        except SQLAlchemyError as e:
+            logger.error("Database error getting metrics", error=str(e))
+            return {
+                'total_orders': 0,
+                'status_distribution': {},
+                'producer_metrics': self.producer.get_metrics()
+            }
+        finally:
+            session.close()
     
     def _start_consumers(self):
         """Start Kafka consumers for order-related events"""

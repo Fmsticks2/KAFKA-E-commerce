@@ -336,6 +336,41 @@ class InventoryService:
             logger.error("Error updating inventory", product_id=product_id, error=str(e))
             return False
     
+    def update_product(self, product_id: str, updates: Dict[str, Any]) -> bool:
+        """Update product details including price, description, and quantity"""
+        try:
+            if product_id not in self.inventory:
+                return False
+            
+            product = self.inventory[product_id]
+            
+            # Update quantity if provided
+            if 'quantity' in updates:
+                quantity = updates['quantity']
+                if quantity >= 0:
+                    product['total_quantity'] = quantity
+                    product['available_quantity'] = quantity - product['reserved_quantity']
+            
+            # Update price if provided
+            if 'price' in updates and updates['price'] >= 0:
+                product['price'] = updates['price']
+            
+            # Update description/name if provided
+            if 'description' in updates:
+                product['description'] = updates['description']
+            
+            if 'name' in updates:
+                product['name'] = updates['name']
+            
+            product['last_updated'] = datetime.utcnow().isoformat()
+            
+            logger.info("Product updated", product_id=product_id, updates=updates)
+            return True
+            
+        except Exception as e:
+            logger.error("Error updating product", product_id=product_id, error=str(e))
+            return False
+    
     def get_metrics(self) -> Dict[str, Any]:
         """Get service metrics"""
         total_products = len(self.inventory)
@@ -517,6 +552,46 @@ def update_inventory(product_id):
             
     except Exception as e:
         logger.error("Error in update_inventory endpoint", error=str(e))
+        return jsonify({'error': 'Internal server error'}), 500
+
+@app.route('/products/<product_id>', methods=['PUT'])
+def update_product(product_id):
+    """Update product details including price, description, and quantity"""
+    try:
+        data = request.get_json()
+        
+        # Validate input data
+        updates = {}
+        if 'quantity' in data:
+            if data['quantity'] < 0:
+                return jsonify({'error': 'Quantity cannot be negative'}), 400
+            updates['quantity'] = data['quantity']
+        
+        if 'price' in data:
+            if data['price'] < 0:
+                return jsonify({'error': 'Price cannot be negative'}), 400
+            updates['price'] = data['price']
+        
+        if 'description' in data:
+            updates['description'] = data['description']
+        
+        if 'name' in data:
+            updates['name'] = data['name']
+        
+        if not updates:
+            return jsonify({'error': 'No valid fields to update'}), 400
+        
+        success = inventory_service.update_product(product_id, updates)
+        
+        if success:
+            # Get updated product data
+            product = inventory_service.get_product_inventory(product_id)
+            return jsonify({'success': True, 'product': product})
+        else:
+            return jsonify({'error': 'Product not found'}), 404
+            
+    except Exception as e:
+        logger.error("Error in update_product endpoint", error=str(e))
         return jsonify({'error': 'Internal server error'}), 500
 
 @app.route('/reservations', methods=['POST'])

@@ -614,6 +614,36 @@ def get_templates():
     templates = notification_service.notification_templates
     return jsonify({'templates': list(templates.keys())})
 
+@app.route('/templates', methods=['POST'])
+def create_template():
+    """Create a new notification template"""
+    try:
+        data = request.get_json()
+        template_name = data.get('name')
+        template_content = data.get('content')
+        template_type = data.get('type', 'email')
+        
+        if not template_name or not template_content:
+            return jsonify({'error': 'Template name and content are required'}), 400
+        
+        # Add template to the service
+        notification_service.notification_templates[template_name] = {
+            'content': template_content,
+            'type': template_type,
+            'created_at': datetime.utcnow().isoformat()
+        }
+        
+        logger.info("Template created", template_name=template_name)
+        return jsonify({
+            'success': True, 
+            'template_name': template_name,
+            'message': 'Template created successfully'
+        })
+        
+    except Exception as e:
+        logger.error("Error creating template", error=str(e))
+        return jsonify({'error': 'Internal server error'}), 500
+
 @app.route('/metrics', methods=['GET'])
 def get_metrics():
     """Get service metrics"""

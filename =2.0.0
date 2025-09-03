@@ -1,0 +1,11 @@
+Collecting sqlalchemy
+  Downloading sqlalchemy-2.0.43-cp312-cp312-win_amd64.whl.metadata (9.8 kB)
+Collecting greenlet>=1 (from sqlalchemy)
+  Downloading greenlet-3.2.4-cp312-cp312-win_amd64.whl.metadata (4.2 kB)
+Requirement already satisfied: typing-extensions>=4.6.0 in c:\users\user\appdata\local\programs\python\python312\lib\site-packages (from sqlalchemy) (4.14.1)
+Downloading sqlalchemy-2.0.43-cp312-cp312-win_amd64.whl (2.1 MB)
+   ---------------------------------------- 2.1/2.1 MB 2.4 MB/s eta 0:00:00
+Downloading greenlet-3.2.4-cp312-cp312-win_amd64.whl (299 kB)
+Installing collected packages: greenlet, sqlalchemy
+
+Successfully installed greenlet-3.2.4 sqlalchemy-2.0.43
