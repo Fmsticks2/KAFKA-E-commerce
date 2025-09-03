@@ -11,7 +11,8 @@ import sys
 import time
 import threading
 import json
-from datetime import datetime
+import uuid
+from datetime import datetime, timedelta
 from pathlib import Path
 
 # Set environment variables before any imports
@@ -30,6 +31,8 @@ sys.path.insert(0, str(Path(__file__).parent))
 from flask import Flask, request, jsonify
 from flask_cors import CORS
 from embedded_kafka import EmbeddedKafka
+from models import db_manager, Order, OrderItem, Payment, Inventory, InventoryReservation, Notification, OrderFlow
+from sqlalchemy.exc import IntegrityError
 import structlog
 
 # Setup logging
@@ -87,74 +90,147 @@ def create_app():
     @app.route('/api/orders', methods=['GET', 'POST'])
     def orders():
         if request.method == 'POST':
+            order_data = request.get_json()
+            session = db_manager.get_session()
+            
             try:
-                order_data = request.get_json()
-                if not order_data:
-                    return jsonify({'error': 'No order data provided'}), 400
+                # Generate unique order ID
+                order_id = f"order_{uuid.uuid4().hex[:12]}"
                 
-                # Add timestamp and ID
-                order_data['id'] = f"order_{int(time.time())}"
-                order_data['timestamp'] = datetime.utcnow().isoformat()
-                order_data['status'] = 'created'
+                # Create order in database
+                new_order = Order(
+                    id=order_id,
+                    customer_id=order_data.get('customer_id', f"customer_{uuid.uuid4().hex[:8]}"),
+                    status='created',
+                    total_amount=float(order_data.get('total_amount', 0))
+                )
+                session.add(new_order)
+                
+                # Add order items if provided
+                if 'items' in order_data:
+                    for item_data in order_data['items']:
+                        order_item = OrderItem(
+                            order_id=order_id,
+                            product_id=item_data['product_id'],
+                            quantity=int(item_data['quantity']),
+                            price=float(item_data['price'])
+                        )
+                        session.add(order_item)
+                
+                session.commit()
+                
+                # Prepare response data
+                response_data = {
+                    'id': order_id,
+                    'customer_id': new_order.customer_id,
+                    'status': new_order.status,
+                    'total_amount': new_order.total_amount,
+                    'created_at': new_order.created_at.isoformat(),
+                    'items': order_data.get('items', [])
+                }
                 
                 # Send to embedded Kafka
                 if embedded_kafka:
-                    embedded_kafka.produce('orders.created', order_data)
-                    logger.info("Order created", order_id=order_data['id'])
+                    embedded_kafka.produce('orders.created', response_data)
                 
+                logger.info("Order created", order_id=order_id)
                 return jsonify({
                     'message': 'Order created successfully',
-                    'order': order_data
+                    'order': response_data
                 }), 201
+                
             except Exception as e:
-                logger.error("Failed to create order", error=str(e))
+                session.rollback()
+                logger.error("Error creating order", error=str(e))
                 return jsonify({'error': 'Failed to create order'}), 500
+            finally:
+                session.close()
         else:
-            # GET - return sample orders
-            return jsonify({
-                'orders': [
-                    {
-                        'id': 'order_1',
-                        'status': 'completed',
-                        'total': 99.99,
-                        'timestamp': datetime.utcnow().isoformat()
-                    }
-                ]
-            })
+            # GET - return orders from database
+            session = db_manager.get_session()
+            try:
+                orders = session.query(Order).order_by(Order.created_at.desc()).limit(10).all()
+                orders_data = []
+                for order in orders:
+                    order_items = session.query(OrderItem).filter(OrderItem.order_id == order.id).all()
+                    items_data = [{
+                        'product_id': item.product_id,
+                        'quantity': item.quantity,
+                        'price': item.price
+                    } for item in order_items]
+                    
+                    orders_data.append({
+                        'id': order.id,
+                        'customer_id': order.customer_id,
+                        'status': order.status,
+                        'total_amount': order.total_amount,
+                        'created_at': order.created_at.isoformat(),
+                        'items': items_data
+                    })
+                
+                return jsonify({'orders': orders_data})
+            except Exception as e:
+                logger.error("Error retrieving orders", error=str(e))
+                return jsonify({'error': 'Failed to retrieve orders'}), 500
+            finally:
+                session.close()
     
     # Individual order retrieval
     @app.route('/api/orders/<order_id>', methods=['GET'])
     def get_order(order_id):
-        # Sample order data - in a real app this would come from database
-        sample_order = {
-            'id': order_id,
-            'customer_id': 'customer_123',
-            'status': 'completed',
-            'total_amount': 299.99,
-            'items': [
-                {'product_id': 'LAPTOP001', 'quantity': 1, 'price': 299.99}
-            ],
-            'created_at': datetime.utcnow().isoformat(),
-            'updated_at': datetime.utcnow().isoformat()
-        }
-        
-        return jsonify({
-            'order': sample_order,
-            'message': 'Order retrieved successfully'
-        })
+        session = db_manager.get_session()
+        try:
+            order = session.query(Order).filter(Order.id == order_id).first()
+            if not order:
+                return jsonify({'error': 'Order not found'}), 404
+            
+            # Get order items
+            order_items = session.query(OrderItem).filter(OrderItem.order_id == order_id).all()
+            items_data = [{
+                'product_id': item.product_id,
+                'quantity': item.quantity,
+                'price': item.price
+            } for item in order_items]
+            
+            return jsonify({
+                'id': order.id,
+                'customer_id': order.customer_id,
+                'status': order.status,
+                'total_amount': order.total_amount,
+                'created_at': order.created_at.isoformat(),
+                'updated_at': order.updated_at.isoformat(),
+                'items': items_data
+            })
+        except Exception as e:
+            logger.error("Error retrieving order", order_id=order_id, error=str(e))
+            return jsonify({'error': 'Failed to retrieve order'}), 500
+        finally:
+            session.close()
     
     # Individual payment retrieval
     @app.route('/api/payments/<payment_id>', methods=['GET'])
     def get_payment(payment_id):
-        sample_payment = {
-            'id': payment_id,
-            'order_id': 'order_123',
-            'amount': 299.99,
-            'status': 'completed',
-            'method': 'credit_card',
-            'created_at': datetime.utcnow().isoformat()
-        }
-        return jsonify({'payment': sample_payment})
+        session = db_manager.get_session()
+        try:
+            payment = session.query(Payment).filter(Payment.id == payment_id).first()
+            if not payment:
+                return jsonify({'error': 'Payment not found'}), 404
+            
+            return jsonify({
+                'id': payment.id,
+                'order_id': payment.order_id,
+                'amount': payment.amount,
+                'status': payment.status,
+                'payment_method': payment.payment_method,
+                'transaction_id': payment.transaction_id,
+                'created_at': payment.created_at.isoformat(),
+                'updated_at': payment.updated_at.isoformat()
+            })
+        except Exception as e:
+            logger.error("Error retrieving payment", payment_id=payment_id, error=str(e))
+            return jsonify({'error': 'Failed to retrieve payment'}), 500
+        finally:
+            session.close()
     
     # Order payments
     @app.route('/api/orders/<order_id>/payments', methods=['GET'])
@@ -167,6 +243,19 @@ def create_app():
                 'status': 'completed',
                 'method': 'credit_card'
             }]
+        })
+    
+    # Payment refund endpoint
+    @app.route('/api/payments/<payment_id>/refund', methods=['POST'])
+    def refund_payment(payment_id):
+        data = request.get_json() or {}
+        return jsonify({
+            'refund_id': f'refund_{int(time.time())}',
+            'payment_id': payment_id,
+            'amount': 299.99,
+            'reason': data.get('reason', 'Customer request'),
+            'status': 'processed',
+            'processed_at': datetime.utcnow().isoformat()
         })
     
     # Customer orders
@@ -191,80 +280,270 @@ def create_app():
             'message': 'Order is valid'
         })
     
-    # Inventory endpoints
+    # Inventory endpoints with database integration
     @app.route('/api/inventory', methods=['GET'])
     def get_all_inventory():
-        return jsonify({
-            'inventory': [
-                {'product_id': 'LAPTOP001', 'quantity': 50, 'reserved': 5},
-                {'product_id': 'MOUSE001', 'quantity': 200, 'reserved': 10},
-                {'product_id': 'KEYBOARD001', 'quantity': 75, 'reserved': 3}
-            ]
-        })
+        from models import db_manager, Inventory, InventoryReservation
+        session = db_manager.get_session()
+        try:
+            inventories = session.query(Inventory).all()
+            inventory_list = []
+            for inv in inventories:
+                # Calculate reserved quantity
+                reserved = session.query(InventoryReservation).filter_by(
+                    product_id=inv.product_id, status='active'
+                ).with_entities(InventoryReservation.quantity).all()
+                reserved_qty = sum([r[0] for r in reserved]) if reserved else 0
+                
+                inventory_list.append({
+                    'product_id': inv.product_id,
+                    'name': inv.name,
+                    'quantity': inv.quantity,
+                    'price': inv.price,
+                    'reserved': reserved_qty,
+                    'available': inv.quantity - reserved_qty
+                })
+            return jsonify({'inventory': inventory_list})
+        except Exception as e:
+            logger.error(f"Error fetching inventory: {e}")
+            return jsonify({'error': 'Failed to fetch inventory'}), 500
+        finally:
+            session.close()
     
     @app.route('/api/inventory/<product_id>', methods=['GET', 'PUT'])
     def inventory_product(product_id):
-        if request.method == 'GET':
-            return jsonify({
-                'product_id': product_id,
-                'quantity': 50,
-                'reserved': 5,
-                'available': 45
-            })
-        else:  # PUT
-            data = request.get_json()
-            return jsonify({
-                'message': 'Inventory updated',
-                'product_id': product_id,
-                'new_quantity': data.get('quantity', 50)
-            })
+        from models import db_manager, Inventory, InventoryReservation
+        session = db_manager.get_session()
+        try:
+            if request.method == 'GET':
+                inventory = session.query(Inventory).filter_by(product_id=product_id).first()
+                if not inventory:
+                    return jsonify({'error': 'Product not found'}), 404
+                
+                # Calculate reserved quantity
+                reserved = session.query(InventoryReservation).filter_by(
+                    product_id=product_id, status='active'
+                ).with_entities(InventoryReservation.quantity).all()
+                reserved_qty = sum([r[0] for r in reserved]) if reserved else 0
+                
+                return jsonify({
+                    'product_id': inventory.product_id,
+                    'name': inventory.name,
+                    'quantity': inventory.quantity,
+                    'price': inventory.price,
+                    'reserved': reserved_qty,
+                    'available': inventory.quantity - reserved_qty
+                })
+            else:  # PUT
+                data = request.get_json()
+                inventory = session.query(Inventory).filter_by(product_id=product_id).first()
+                if not inventory:
+                    return jsonify({'error': 'Product not found'}), 404
+                
+                # Update inventory fields
+                if 'quantity' in data:
+                    inventory.quantity = data['quantity']
+                if 'price' in data:
+                    inventory.price = data['price']
+                if 'name' in data:
+                    inventory.name = data['name']
+                
+                inventory.updated_at = datetime.utcnow()
+                session.commit()
+                
+                return jsonify({
+                    'message': 'Inventory updated successfully',
+                    'product_id': product_id,
+                    'quantity': inventory.quantity,
+                    'price': inventory.price,
+                    'name': inventory.name
+                })
+        except Exception as e:
+            session.rollback()
+            logger.error(f"Error with inventory product {product_id}: {e}")
+            return jsonify({'error': 'Failed to process inventory request'}), 500
+        finally:
+            session.close()
     
     @app.route('/api/products/<product_id>', methods=['PUT'])
     def update_product(product_id):
-        data = request.get_json()
-        return jsonify({
-            'message': 'Product updated',
-            'product_id': product_id,
-            'updated_fields': list(data.keys()) if data else []
-        })
+        from models import db_manager, Inventory
+        session = db_manager.get_session()
+        try:
+            data = request.get_json()
+            inventory = session.query(Inventory).filter_by(product_id=product_id).first()
+            if not inventory:
+                return jsonify({'error': 'Product not found'}), 404
+            
+            updated_fields = []
+            if 'name' in data:
+                inventory.name = data['name']
+                updated_fields.append('name')
+            if 'price' in data:
+                inventory.price = data['price']
+                updated_fields.append('price')
+            if 'quantity' in data:
+                inventory.quantity = data['quantity']
+                updated_fields.append('quantity')
+            
+            inventory.updated_at = datetime.utcnow()
+            session.commit()
+            
+            return jsonify({
+                'message': 'Product updated successfully',
+                'product_id': product_id,
+                'updated_fields': updated_fields
+            })
+        except Exception as e:
+            session.rollback()
+            logger.error(f"Error updating product {product_id}: {e}")
+            return jsonify({'error': 'Failed to update product'}), 500
+        finally:
+            session.close()
     
-    # Reservations
+    # Reservations with database integration
     @app.route('/api/reservations', methods=['POST'])
     def create_reservation():
-        data = request.get_json()
-        return jsonify({
-            'reservation_id': f'res_{int(time.time())}',
-            'product_id': data.get('product_id'),
-            'quantity': data.get('quantity'),
-            'status': 'active'
-        })
+        from models import db_manager, Inventory, InventoryReservation
+        from datetime import timedelta
+        session = db_manager.get_session()
+        try:
+            data = request.get_json()
+            product_id = data.get('product_id')
+            quantity = data.get('quantity', 1)
+            order_id = data.get('order_id')
+            
+            if not product_id or not order_id:
+                return jsonify({'error': 'Product ID and Order ID are required'}), 400
+            
+            # Check if product exists and has enough inventory
+            inventory = session.query(Inventory).filter_by(product_id=product_id).first()
+            if not inventory:
+                return jsonify({'error': 'Product not found'}), 404
+            
+            # Calculate available quantity
+            reserved = session.query(InventoryReservation).filter_by(
+                product_id=product_id, status='active'
+            ).with_entities(InventoryReservation.quantity).all()
+            reserved_qty = sum([r[0] for r in reserved]) if reserved else 0
+            available = inventory.quantity - reserved_qty
+            
+            if available < quantity:
+                return jsonify({'error': 'Insufficient inventory'}), 400
+            
+            # Create reservation with UUID
+            reservation_id = f'res_{uuid.uuid4().hex[:12]}'
+            reservation = InventoryReservation(
+                id=reservation_id,
+                product_id=product_id,
+                order_id=order_id,
+                quantity=quantity,
+                status='active',
+                expires_at=datetime.utcnow() + timedelta(hours=1)  # 1 hour expiry
+            )
+            session.add(reservation)
+            session.commit()
+            
+            return jsonify({
+                'reservation_id': reservation_id,
+                'product_id': product_id,
+                'quantity': quantity,
+                'order_id': order_id,
+                'status': 'active',
+                'expires_at': reservation.expires_at.isoformat()
+            })
+        except Exception as e:
+            session.rollback()
+            logger.error(f"Error creating reservation: {e}")
+            return jsonify({'error': 'Failed to create reservation'}), 500
+        finally:
+            session.close()
     
     @app.route('/api/reservations/<reservation_id>/release', methods=['POST'])
     def release_reservation(reservation_id):
-        return jsonify({
-            'message': 'Reservation released',
-            'reservation_id': reservation_id
-        })
+        from models import db_manager, InventoryReservation
+        session = db_manager.get_session()
+        try:
+            reservation = session.query(InventoryReservation).filter_by(id=reservation_id).first()
+            if not reservation:
+                return jsonify({'error': 'Reservation not found'}), 404
+            
+            reservation.status = 'released'
+            session.commit()
+            
+            return jsonify({
+                'message': 'Reservation released successfully',
+                'reservation_id': reservation_id,
+                'status': 'released'
+            })
+        except Exception as e:
+            session.rollback()
+            logger.error(f"Error releasing reservation {reservation_id}: {e}")
+            return jsonify({'error': 'Failed to release reservation'}), 500
+        finally:
+            session.close()
     
     # Notifications
     @app.route('/api/notifications', methods=['POST'])
     def send_notification():
         data = request.get_json()
-        return jsonify({
-            'notification_id': f'notif_{int(time.time())}',
-            'status': 'sent',
-            'recipient': data.get('recipient')
-        })
+        session = db_manager.get_session()
+        
+        try:
+            # Generate unique notification ID
+            notification_id = f'notif_{uuid.uuid4().hex[:12]}'
+            
+            # Create notification in database
+            notification = Notification(
+                id=notification_id,
+                recipient=data.get('recipient', 'unknown@example.com'),
+                type=data.get('type', 'email'),
+                template=data.get('template', 'default'),
+                subject=data.get('subject', 'Notification'),
+                message=data.get('message', 'Default notification message'),
+                status='sent'
+            )
+            session.add(notification)
+            session.commit()
+            
+            return jsonify({
+                'notification_id': notification_id,
+                'status': 'sent',
+                'recipient': data.get('recipient'),
+                'created_at': notification.created_at.isoformat()
+            })
+            
+        except Exception as e:
+            session.rollback()
+            logger.error("Error sending notification", error=str(e))
+            return jsonify({'error': 'Failed to send notification'}), 500
+        finally:
+            session.close()
     
     @app.route('/api/notifications/<notification_id>', methods=['GET'])
     def get_notification(notification_id):
-        return jsonify({
-            'id': notification_id,
-            'type': 'order_confirmation',
-            'recipient': 'customer@example.com',
-            'status': 'delivered',
-            'created_at': datetime.utcnow().isoformat()
-        })
+        session = db_manager.get_session()
+        try:
+            notification = session.query(Notification).filter(Notification.id == notification_id).first()
+            if not notification:
+                return jsonify({'error': 'Notification not found'}), 404
+            
+            return jsonify({
+                'id': notification.id,
+                'recipient': notification.recipient,
+                'type': notification.type,
+                'template': notification.template,
+                'subject': notification.subject,
+                'message': notification.message,
+                'status': notification.status,
+                'created_at': notification.created_at.isoformat(),
+                'sent_at': notification.sent_at.isoformat() if notification.sent_at else None
+            })
+        except Exception as e:
+            logger.error("Error retrieving notification", notification_id=notification_id, error=str(e))
+            return jsonify({'error': 'Failed to retrieve notification'}), 500
+        finally:
+            session.close()
     
     @app.route('/api/recipients/<recipient>/notifications', methods=['GET'])
     def get_recipient_notifications(recipient):
@@ -309,25 +588,79 @@ def create_app():
             })
         else:  # POST
             data = request.get_json()
-            return jsonify({
-                'flow_id': f'flow_{int(time.time())}',
-                'order_id': data.get('order_id'),
-                'status': 'started'
-            })
+            session = db_manager.get_session()
+            
+            try:
+                order_id = data.get('order_id')
+                if not order_id:
+                    return jsonify({'error': 'Order ID is required'}), 400
+                
+                # Verify order exists
+                order = session.query(Order).filter(Order.id == order_id).first()
+                if not order:
+                    return jsonify({'error': 'Order not found'}), 404
+                
+                # Create order flow entry
+                flow = OrderFlow(
+                    order_id=order_id,
+                    step='validation',
+                    status='started',
+                    message='Order flow initiated'
+                )
+                session.add(flow)
+                session.commit()
+                
+                return jsonify({
+                    'flow_id': flow.id,
+                    'order_id': order_id,
+                    'status': 'started',
+                    'current_step': 'validation',
+                    'steps': ['validation', 'inventory_check', 'payment', 'fulfillment'],
+                    'created_at': flow.created_at.isoformat()
+                })
+                
+            except Exception as e:
+                session.rollback()
+                logger.error("Error starting order flow", error=str(e))
+                return jsonify({'error': 'Failed to start order flow'}), 500
+            finally:
+                session.close()
     
     @app.route('/api/flows/<order_id>', methods=['GET'])
     def get_order_flow(order_id):
-        return jsonify({
-            'flow_id': f'flow_{order_id}',
-            'order_id': order_id,
-            'status': 'completed',
-            'steps': [
-                {'name': 'validate', 'status': 'completed'},
-                {'name': 'payment', 'status': 'completed'},
-                {'name': 'inventory', 'status': 'completed'},
-                {'name': 'notification', 'status': 'completed'}
-            ]
-        })
+        session = db_manager.get_session()
+        try:
+            # Get all flow steps for the order
+            flows = session.query(OrderFlow).filter(OrderFlow.order_id == order_id).order_by(OrderFlow.created_at).all()
+            
+            if not flows:
+                return jsonify({'error': 'Order flow not found'}), 404
+            
+            # Get the latest flow status
+            latest_flow = flows[-1]
+            
+            # Format flow steps
+            steps = [{
+                'step': flow.step,
+                'status': flow.status,
+                'message': flow.message,
+                'timestamp': flow.created_at.isoformat()
+            } for flow in flows]
+            
+            return jsonify({
+                'flow_id': f'flow_{order_id}',
+                'order_id': order_id,
+                'status': latest_flow.status,
+                'current_step': latest_flow.step,
+                'steps': steps,
+                'last_updated': latest_flow.created_at.isoformat()
+            })
+            
+        except Exception as e:
+            logger.error("Error retrieving order flow", order_id=order_id, error=str(e))
+            return jsonify({'error': 'Failed to retrieve order flow'}), 500
+        finally:
+            session.close()
 
     # Products API
     @app.route('/api/products', methods=['GET'])
@@ -343,28 +676,62 @@ def create_app():
     # Payments API
     @app.route('/api/payments', methods=['POST'])
     def payments():
+        payment_data = request.get_json()
+        session = db_manager.get_session()
+        
         try:
-            payment_data = request.get_json()
             if not payment_data:
                 return jsonify({'error': 'No payment data provided'}), 400
             
-            # Simulate payment processing
-            payment_data['id'] = f"payment_{int(time.time())}"
-            payment_data['timestamp'] = datetime.utcnow().isoformat()
-            payment_data['status'] = 'completed'
+            # Generate unique payment ID
+            payment_id = f"payment_{uuid.uuid4().hex[:12]}"
+            
+            # Verify order exists
+            order_id = payment_data.get('order_id')
+            if order_id:
+                order = session.query(Order).filter(Order.id == order_id).first()
+                if not order:
+                    return jsonify({'error': 'Order not found'}), 404
+            
+            # Create payment in database
+            new_payment = Payment(
+                id=payment_id,
+                order_id=order_id,
+                amount=float(payment_data.get('amount', 0)),
+                status='completed',
+                payment_method=payment_data.get('payment_method', 'credit_card'),
+                transaction_id=f"txn_{uuid.uuid4().hex[:8]}"
+            )
+            session.add(new_payment)
+            session.commit()
+            
+            # Prepare response data
+            response_data = {
+                'id': payment_id,
+                'order_id': order_id,
+                'amount': new_payment.amount,
+                'status': new_payment.status,
+                'payment_method': new_payment.payment_method,
+                'transaction_id': new_payment.transaction_id,
+                'created_at': new_payment.created_at.isoformat()
+            }
             
             # Send to embedded Kafka
             if embedded_kafka:
-                embedded_kafka.produce('payments.completed', payment_data)
-                logger.info("Payment processed", payment_id=payment_data['id'])
+                embedded_kafka.produce('payments.completed', response_data)
+                logger.info("Payment processed", payment_id=payment_id)
             
             return jsonify({
                 'message': 'Payment processed successfully',
-                'payment': payment_data
+                'payment': response_data
             }), 200
+            
         except Exception as e:
+            session.rollback()
             logger.error("Failed to process payment", error=str(e))
             return jsonify({'error': 'Failed to process payment'}), 500
+        finally:
+            session.close()
     
     # Individual service health endpoints
     @app.route('/api/orders/health')
