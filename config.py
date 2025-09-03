@@ -82,7 +82,7 @@ class Config:
     LOG_FORMAT = os.getenv('LOG_FORMAT', 'json')
     
     # Database Configuration (for inventory and order state)
-    DATABASE_URL = os.getenv('DATABASE_URL', 'sqlite:///ecommerce.db')
+    DATABASE_URL = os.getenv('DATABASE_URL', 'postgresql://postgres:kbaVybgvAXcwaWOPrEBvSgMeNNscBCjO@interchange.proxy.rlwy.net:59985/railway')
     
     # External Service URLs
     PAYMENT_GATEWAY_URL = os.getenv('PAYMENT_GATEWAY_URL', 'https://api.payment-gateway.com')
