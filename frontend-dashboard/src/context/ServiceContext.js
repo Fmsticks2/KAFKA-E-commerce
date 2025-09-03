@@ -19,37 +19,37 @@ const SERVICES = {
   order: { 
     port: 5011, 
     name: 'Order Service',
-    url: `${BASE_URL}/api/orders`,
+    url: `${BASE_URL}/api`,
     healthUrl: `${BASE_URL}/api/orders/health`
   },
   payment: { 
     port: 6002, 
     name: 'Payment Service',
-    url: `${BASE_URL}/api/payments`,
+    url: `${BASE_URL}/api`,
     healthUrl: `${BASE_URL}/api/payments/health`
   },
   inventory: { 
     port: 5003, 
     name: 'Inventory Service',
-    url: `${BASE_URL}/api/inventory`,
+    url: `${BASE_URL}/api`,
     healthUrl: `${BASE_URL}/api/inventory/health`
   },
   notification: { 
     port: 5004, 
     name: 'Notification Service',
-    url: `${BASE_URL}/api/notifications`,
+    url: `${BASE_URL}/api`,
     healthUrl: `${BASE_URL}/api/notifications/health`
   },
   orchestrator: { 
     port: 5005, 
     name: 'Orchestrator Service',
-    url: `${BASE_URL}/api/orchestrator`,
+    url: `${BASE_URL}/api`,
     healthUrl: `${BASE_URL}/api/orchestrator/health`
   },
   monitoring: { 
     port: 5005, 
     name: 'Monitoring Service',
-    url: `${BASE_URL}/api/monitoring`,
+    url: `${BASE_URL}/api`,
     healthUrl: `${BASE_URL}/api/monitoring/health`
   }
 };
