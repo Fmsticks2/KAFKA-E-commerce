@@ -13,36 +13,44 @@ export const useServices = () => {
 };
 
 // Service configuration with environment variable support
+const BASE_URL = process.env.REACT_APP_API_BASE_URL || 'https://kafka-ecommerce-production-b5e5.up.railway.app';
+
 const SERVICES = {
   order: { 
     port: 5011, 
     name: 'Order Service',
-    url: process.env.REACT_APP_ORDER_SERVICE_URL || 'http://localhost:5011'
+    url: `${BASE_URL}/api/orders`,
+    healthUrl: `${BASE_URL}/api/orders/health`
   },
   payment: { 
     port: 6002, 
     name: 'Payment Service',
-    url: process.env.REACT_APP_PAYMENT_SERVICE_URL || 'http://localhost:6002'
+    url: `${BASE_URL}/api/payments`,
+    healthUrl: `${BASE_URL}/api/payments/health`
   },
   inventory: { 
     port: 5003, 
     name: 'Inventory Service',
-    url: process.env.REACT_APP_INVENTORY_SERVICE_URL || 'http://localhost:5003'
+    url: `${BASE_URL}/api/inventory`,
+    healthUrl: `${BASE_URL}/api/inventory/health`
   },
   notification: { 
     port: 5004, 
     name: 'Notification Service',
-    url: process.env.REACT_APP_NOTIFICATION_SERVICE_URL || 'http://localhost:5004'
+    url: `${BASE_URL}/api/notifications`,
+    healthUrl: `${BASE_URL}/api/notifications/health`
   },
   orchestrator: { 
     port: 5005, 
     name: 'Orchestrator Service',
-    url: process.env.REACT_APP_ORCHESTRATOR_SERVICE_URL || 'http://localhost:5005'
+    url: `${BASE_URL}/api/orchestrator`,
+    healthUrl: `${BASE_URL}/api/orchestrator/health`
   },
   monitoring: { 
     port: 5005, 
     name: 'Monitoring Service',
-    url: process.env.REACT_APP_MONITORING_SERVICE_URL || 'http://localhost:5005'
+    url: `${BASE_URL}/api/monitoring`,
+    healthUrl: `${BASE_URL}/api/monitoring/health`
   }
 };
 
@@ -87,10 +95,21 @@ export const ServiceProvider = ({ children }) => {
   const checkAllServicesHealth = useCallback(async () => {
     const healthChecks = Object.keys(SERVICES).map(async (service) => {
       try {
-        const result = await apiCall(service, '/health');
+        // Use direct health URL for health checks
+        const config = {
+          method: 'GET',
+          url: SERVICES[service].healthUrl,
+          timeout: 10000,
+          headers: {
+            'Content-Type': 'application/json',
+          },
+        };
+        const response = await axios(config);
         return {
           service,
-          ...result,
+          success: true,
+          data: response.data,
+          status: response.status,
           name: SERVICES[service].name,
           port: SERVICES[service].port
         };
@@ -98,7 +117,8 @@ export const ServiceProvider = ({ children }) => {
         return {
           service,
           success: false,
-          error: error.message,
+          error: error.response?.data?.error || error.message,
+          status: error.response?.status || 500,
           name: SERVICES[service].name,
           port: SERVICES[service].port
         };

@@ -26,8 +26,17 @@ const PageHeader = styled.div`
 
 const ActionsGrid = styled.div`
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
   gap: 24px;
+  
+  @media (max-width: 768px) {
+    grid-template-columns: 1fr;
+    gap: 16px;
+  }
+  
+  @media (min-width: 1200px) {
+    grid-template-columns: repeat(2, 1fr);
+  }
 `;
 
 const ActionCard = styled.div`
@@ -36,6 +45,12 @@ const ActionCard = styled.div`
   padding: 24px;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
   border: 1px solid #e2e8f0;
+  min-height: fit-content;
+  height: auto;
+  
+  @media (max-width: 768px) {
+    padding: 16px;
+  }
 `;
 
 const CardHeader = styled.div`
@@ -146,6 +161,17 @@ const ItemRow = styled.div`
   gap: 12px;
   align-items: end;
   margin-bottom: 12px;
+  
+  @media (max-width: 768px) {
+    grid-template-columns: 1fr;
+    gap: 8px;
+    
+    > div {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+  }
   
   &:last-child {
     margin-bottom: 0;
