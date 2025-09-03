@@ -122,14 +122,221 @@ def create_app():
                 ]
             })
     
+    # Individual order retrieval
+    @app.route('/api/orders/<order_id>', methods=['GET'])
+    def get_order(order_id):
+        # Sample order data - in a real app this would come from database
+        sample_order = {
+            'id': order_id,
+            'customer_id': 'customer_123',
+            'status': 'completed',
+            'total_amount': 299.99,
+            'items': [
+                {'product_id': 'LAPTOP001', 'quantity': 1, 'price': 299.99}
+            ],
+            'created_at': datetime.utcnow().isoformat(),
+            'updated_at': datetime.utcnow().isoformat()
+        }
+        
+        return jsonify({
+            'order': sample_order,
+            'message': 'Order retrieved successfully'
+        })
+    
+    # Individual payment retrieval
+    @app.route('/api/payments/<payment_id>', methods=['GET'])
+    def get_payment(payment_id):
+        sample_payment = {
+            'id': payment_id,
+            'order_id': 'order_123',
+            'amount': 299.99,
+            'status': 'completed',
+            'method': 'credit_card',
+            'created_at': datetime.utcnow().isoformat()
+        }
+        return jsonify({'payment': sample_payment})
+    
+    # Order payments
+    @app.route('/api/orders/<order_id>/payments', methods=['GET'])
+    def get_order_payments(order_id):
+        return jsonify({
+            'payments': [{
+                'id': f'payment_{order_id}',
+                'order_id': order_id,
+                'amount': 299.99,
+                'status': 'completed',
+                'method': 'credit_card'
+            }]
+        })
+    
+    # Customer orders
+    @app.route('/api/customers/<customer_id>/orders', methods=['GET'])
+    def get_customer_orders(customer_id):
+        return jsonify({
+            'orders': [{
+                'id': 'order_123',
+                'customer_id': customer_id,
+                'status': 'completed',
+                'total': 299.99,
+                'created_at': datetime.utcnow().isoformat()
+            }]
+        })
+    
+    # Order validation
+    @app.route('/api/orders/<order_id>/validate', methods=['POST'])
+    def validate_order(order_id):
+        return jsonify({
+            'valid': True,
+            'order_id': order_id,
+            'message': 'Order is valid'
+        })
+    
+    # Inventory endpoints
+    @app.route('/api/inventory', methods=['GET'])
+    def get_all_inventory():
+        return jsonify({
+            'inventory': [
+                {'product_id': 'LAPTOP001', 'quantity': 50, 'reserved': 5},
+                {'product_id': 'MOUSE001', 'quantity': 200, 'reserved': 10},
+                {'product_id': 'KEYBOARD001', 'quantity': 75, 'reserved': 3}
+            ]
+        })
+    
+    @app.route('/api/inventory/<product_id>', methods=['GET', 'PUT'])
+    def inventory_product(product_id):
+        if request.method == 'GET':
+            return jsonify({
+                'product_id': product_id,
+                'quantity': 50,
+                'reserved': 5,
+                'available': 45
+            })
+        else:  # PUT
+            data = request.get_json()
+            return jsonify({
+                'message': 'Inventory updated',
+                'product_id': product_id,
+                'new_quantity': data.get('quantity', 50)
+            })
+    
+    @app.route('/api/products/<product_id>', methods=['PUT'])
+    def update_product(product_id):
+        data = request.get_json()
+        return jsonify({
+            'message': 'Product updated',
+            'product_id': product_id,
+            'updated_fields': list(data.keys()) if data else []
+        })
+    
+    # Reservations
+    @app.route('/api/reservations', methods=['POST'])
+    def create_reservation():
+        data = request.get_json()
+        return jsonify({
+            'reservation_id': f'res_{int(time.time())}',
+            'product_id': data.get('product_id'),
+            'quantity': data.get('quantity'),
+            'status': 'active'
+        })
+    
+    @app.route('/api/reservations/<reservation_id>/release', methods=['POST'])
+    def release_reservation(reservation_id):
+        return jsonify({
+            'message': 'Reservation released',
+            'reservation_id': reservation_id
+        })
+    
+    # Notifications
+    @app.route('/api/notifications', methods=['POST'])
+    def send_notification():
+        data = request.get_json()
+        return jsonify({
+            'notification_id': f'notif_{int(time.time())}',
+            'status': 'sent',
+            'recipient': data.get('recipient')
+        })
+    
+    @app.route('/api/notifications/<notification_id>', methods=['GET'])
+    def get_notification(notification_id):
+        return jsonify({
+            'id': notification_id,
+            'type': 'order_confirmation',
+            'recipient': 'customer@example.com',
+            'status': 'delivered',
+            'created_at': datetime.utcnow().isoformat()
+        })
+    
+    @app.route('/api/recipients/<recipient>/notifications', methods=['GET'])
+    def get_recipient_notifications(recipient):
+        return jsonify({
+            'notifications': [{
+                'id': 'notif_123',
+                'type': 'order_confirmation',
+                'recipient': recipient,
+                'status': 'delivered'
+            }]
+        })
+    
+    @app.route('/api/templates', methods=['GET', 'POST'])
+    def notification_templates():
+        if request.method == 'GET':
+            return jsonify({
+                'templates': [{
+                    'id': 'template_1',
+                    'name': 'Order Confirmation',
+                    'type': 'email'
+                }]
+            })
+        else:  # POST
+            data = request.get_json()
+            return jsonify({
+                'template_id': f'template_{int(time.time())}',
+                'name': data.get('name'),
+                'status': 'created'
+            })
+    
+    # Orchestrator flows
+    @app.route('/api/flows', methods=['GET', 'POST'])
+    def order_flows():
+        if request.method == 'GET':
+            return jsonify({
+                'flows': [{
+                    'id': 'flow_123',
+                    'order_id': 'order_123',
+                    'status': 'completed',
+                    'steps': ['validate', 'payment', 'inventory', 'notification']
+                }]
+            })
+        else:  # POST
+            data = request.get_json()
+            return jsonify({
+                'flow_id': f'flow_{int(time.time())}',
+                'order_id': data.get('order_id'),
+                'status': 'started'
+            })
+    
+    @app.route('/api/flows/<order_id>', methods=['GET'])
+    def get_order_flow(order_id):
+        return jsonify({
+            'flow_id': f'flow_{order_id}',
+            'order_id': order_id,
+            'status': 'completed',
+            'steps': [
+                {'name': 'validate', 'status': 'completed'},
+                {'name': 'payment', 'status': 'completed'},
+                {'name': 'inventory', 'status': 'completed'},
+                {'name': 'notification', 'status': 'completed'}
+            ]
+        })
+
     # Products API
     @app.route('/api/products', methods=['GET'])
     def products():
         return jsonify({
             'products': [
-                {'id': 1, 'name': 'Sample Product 1', 'price': 29.99, 'stock': 100},
-                {'id': 2, 'name': 'Sample Product 2', 'price': 49.99, 'stock': 50},
-                {'id': 3, 'name': 'Sample Product 3', 'price': 19.99, 'stock': 200}
+                {'id': 'LAPTOP001', 'name': 'Gaming Laptop', 'price': 1299.99, 'stock': 50},
+                {'id': 'MOUSE001', 'name': 'Wireless Mouse', 'price': 29.99, 'stock': 200},
+                {'id': 'KEYBOARD001', 'name': 'Mechanical Keyboard', 'price': 89.99, 'stock': 75}
             ]
         })
     
@@ -233,6 +440,117 @@ def create_app():
                 'messages': messages[-10:]  # Last 10 messages
             })
         return jsonify({'error': 'Topic not found'}), 404
+    
+    # Service-specific metrics endpoints
+    @app.route('/api/metrics', methods=['GET'])
+    def service_metrics():
+        return jsonify({
+            'orders_processed': 1250,
+            'payments_completed': 1180,
+            'inventory_updates': 450,
+            'notifications_sent': 890,
+            'uptime': '99.9%'
+        })
+    
+    # Missing endpoints that frontend expects
+    @app.route('/api/services/health')
+    def services_health():
+        return jsonify({
+            'services': {
+                'orders': {'status': 'healthy', 'uptime': '100%'},
+                'payments': {'status': 'healthy', 'uptime': '100%'},
+                'inventory': {'status': 'healthy', 'uptime': '100%'},
+                'notifications': {'status': 'healthy', 'uptime': '100%'},
+                'monitoring': {'status': 'healthy', 'uptime': '100%'},
+                'orchestrator': {'status': 'healthy', 'uptime': '100%'}
+            },
+            'overall_status': 'healthy',
+            'timestamp': datetime.utcnow().isoformat()
+        })
+    
+    @app.route('/api/metrics/kafka')
+    def metrics_kafka():
+        topic_count = len(embedded_kafka.topics) if embedded_kafka else 0
+        total_messages = sum(len(messages) for messages in embedded_kafka.topics.values()) if embedded_kafka else 0
+        return jsonify({
+            'topics': topic_count,
+            'total_messages': total_messages,
+            'status': 'running' if embedded_kafka else 'stopped',
+            'timestamp': datetime.utcnow().isoformat()
+        })
+    
+    @app.route('/api/metrics/orders')
+    def metrics_orders():
+        return jsonify({
+            'total_orders': 156,
+            'pending_orders': 12,
+            'completed_orders': 144,
+            'failed_orders': 0,
+            'average_processing_time': '2.3s',
+            'timestamp': datetime.utcnow().isoformat()
+        })
+    
+    @app.route('/api/metrics/system')
+    def metrics_system():
+        return jsonify({
+            'cpu_usage': '45%',
+            'memory_usage': '62%',
+            'disk_usage': '34%',
+            'uptime': '99.9%',
+            'timestamp': datetime.utcnow().isoformat()
+        })
+    
+    @app.route('/api/metrics/prometheus')
+    def metrics_prometheus():
+        return jsonify({
+            'metrics': {
+                'http_requests_total': 1234,
+                'http_request_duration_seconds': 0.123,
+                'kafka_messages_produced_total': 567,
+                'kafka_messages_consumed_total': 543
+            },
+            'timestamp': datetime.utcnow().isoformat()
+        })
+    
+    @app.route('/api/alerts')
+    def alerts():
+        return jsonify({
+            'alerts': [
+                {
+                    'id': 1,
+                    'severity': 'info',
+                    'message': 'System running normally',
+                    'timestamp': datetime.utcnow().isoformat(),
+                    'resolved': True
+                }
+            ],
+            'total_alerts': 1,
+            'active_alerts': 0
+        })
+    
+    @app.route('/api/alerts/<alert_id>/resolve', methods=['POST'])
+    def resolve_alert(alert_id):
+        return jsonify({
+            'message': 'Alert resolved',
+            'alert_id': alert_id,
+            'resolved_at': datetime.utcnow().isoformat()
+        })
+    
+    @app.route('/api/dashboard')
+    def dashboard():
+        return jsonify({
+            'summary': {
+                'total_orders': 156,
+                'total_revenue': 15678.90,
+                'active_users': 89,
+                'system_health': 'excellent'
+            },
+            'recent_activity': [
+                {'type': 'order', 'message': 'New order #1234 created', 'timestamp': datetime.utcnow().isoformat()},
+                {'type': 'payment', 'message': 'Payment processed for order #1233', 'timestamp': datetime.utcnow().isoformat()}
+            ],
+            'timestamp': datetime.utcnow().isoformat()
+        })
     
     return app
 
