@@ -67,7 +67,19 @@ def create_app():
                 'health': '/health',
                 'orders': '/api/orders',
                 'products': '/api/products',
-                'payments': '/api/payments'
+                'payments': '/api/payments',
+                'service_health': {
+                    'orders': '/api/orders/health',
+                    'payments': '/api/payments/health',
+                    'inventory': '/api/inventory/health',
+                    'notifications': '/api/notifications/health',
+                    'monitoring': '/api/monitoring/health',
+                    'orchestrator': '/api/orchestrator/health'
+                },
+                'kafka': {
+                    'topics': '/api/kafka/topics',
+                    'messages': '/api/kafka/messages/<topic>'
+                }
             }
         })
     
@@ -146,6 +158,61 @@ def create_app():
         except Exception as e:
             logger.error("Failed to process payment", error=str(e))
             return jsonify({'error': 'Failed to process payment'}), 500
+    
+    # Individual service health endpoints
+    @app.route('/api/orders/health')
+    def orders_health():
+        return jsonify({
+            'service': 'orders',
+            'status': 'healthy',
+            'timestamp': datetime.utcnow().isoformat(),
+            'kafka_connected': embedded_kafka is not None
+        })
+    
+    @app.route('/api/payments/health')
+    def payments_health():
+        return jsonify({
+            'service': 'payments',
+            'status': 'healthy',
+            'timestamp': datetime.utcnow().isoformat(),
+            'kafka_connected': embedded_kafka is not None
+        })
+    
+    @app.route('/api/inventory/health')
+    def inventory_health():
+        return jsonify({
+            'service': 'inventory',
+            'status': 'healthy',
+            'timestamp': datetime.utcnow().isoformat(),
+            'kafka_connected': embedded_kafka is not None
+        })
+    
+    @app.route('/api/notifications/health')
+    def notifications_health():
+        return jsonify({
+            'service': 'notifications',
+            'status': 'healthy',
+            'timestamp': datetime.utcnow().isoformat(),
+            'kafka_connected': embedded_kafka is not None
+        })
+    
+    @app.route('/api/monitoring/health')
+    def monitoring_health():
+        return jsonify({
+            'service': 'monitoring',
+            'status': 'healthy',
+            'timestamp': datetime.utcnow().isoformat(),
+            'kafka_connected': embedded_kafka is not None
+        })
+    
+    @app.route('/api/orchestrator/health')
+    def orchestrator_health():
+        return jsonify({
+            'service': 'orchestrator',
+            'status': 'healthy',
+            'timestamp': datetime.utcnow().isoformat(),
+            'kafka_connected': embedded_kafka is not None
+        })
     
     # Kafka topics endpoint
     @app.route('/api/kafka/topics')
