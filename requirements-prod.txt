@@ -14,3 +14,7 @@ pyyaml==6.0.1
 # Additional production dependencies
 gunicorn==21.2.0
 gevent==23.7.0
+
+# Database dependencies
+sqlalchemy>=2.0.0
+psycopg2-binary>=2.9.0
